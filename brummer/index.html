@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Sniglet:wght@400;800&display=swap">
 <style>
-/* Layout: schwarze Projektionsfläche (Schwarz = kein Licht), Menü als Panel in der Mitte, Kalibrierung mit vier Eckgriffen. */
+/* Layout: schwarze Projektionsfläche (Schwarz = kein Licht), Menü als Panel in der Mitte mit Statistik darunter, Kalibrierung mit vier Eckgriffen. */
 :root {
   --black: #000000;
   --panel: rgba(14, 20, 34, 0.92);
@@ -157,8 +157,6 @@ kbd {
 .status[data-state="ok"]::before { background: var(--ok); }
 .status[data-state="warn"]::before { background: var(--warn); }
 .note { margin: 0; font-size: 0.82rem; color: var(--warn); }
-.tally { margin: 0; font-size: 0.9rem; color: var(--muted); }
-.tally strong { font-size: 1.3rem; color: var(--ink); font-variant-numeric: tabular-nums; }
 
 /* ---------- Kalibrierung ---------- */
 .handle {
@@ -192,6 +190,40 @@ kbd {
 }
 #calhelp p { margin: 0; color: var(--muted); }
 #calhelp strong { color: var(--ink); }
+.options .wide { grid-column: 1 / -1; }
+.slots { margin: 0; font-size: 0.85rem; color: var(--muted); }
+
+/* ---------- Statistik ---------- */
+.stats {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.stats-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 14px; }
+.stats-head h2 { margin: 0; font-family: var(--display); font-weight: 800; font-size: 1.3rem; }
+.totals { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.totals strong { color: var(--ink); }
+.link { margin-left: auto; padding: 4px; border: 0; background: none; color: var(--muted); font-size: 0.85rem; text-decoration: underline; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+th {
+  padding: 6px 12px 6px 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+td { padding: 7px 12px 7px 0; border-bottom: 1px solid rgba(160, 185, 230, 0.08); white-space: nowrap; }
+th.num, td.num { text-align: right; }
+tr.best td { color: var(--amber); }
+.empty { margin: 0; color: var(--muted); font-size: 0.9rem; }
 
 button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
 </style>
@@ -205,16 +237,26 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
       <header>
         <p class="eyebrow">Pfotenjagd · Projektor</p>
         <h1 id="title">Brummer</h1>
-        <p class="lede">Eine Fliege summt über den Boden. Du steuerst sie mit dem Handy, deine Katze versucht sie zu fangen.</p>
+        <p class="lede">Eine Fliege, Mücke, Motte, Maus oder ein Laserpunkt huscht über den Boden. Du steuerst mit dem Handy, deine Katze jagt.</p>
       </header>
       <ol class="steps">
-        <li>Handy ins selbe WLAN, QR-Code scannen.</li>
+        <li>Handy ins selbe WLAN, QR-Code scannen. Ein zweites Handy steuert eine zweite Beute.</li>
         <li><strong>Ecken anpassen</strong>, bis das Raster auf dem Boden rechtwinklig aussieht.</li>
         <li><strong>Start</strong> drücken. Der Laptop geht in den Vollbildmodus.</li>
       </ol>
       <div class="options">
+        <div class="field wide">
+          <span class="label">Beute</span>
+          <div class="seg" data-key="prey">
+            <button type="button" id="prey-fly" data-v="fly">Fliege</button>
+            <button type="button" id="prey-mosquito" data-v="mosquito">Mücke</button>
+            <button type="button" id="prey-moth" data-v="moth">Motte</button>
+            <button type="button" id="prey-mouse" data-v="mouse">Maus</button>
+            <button type="button" id="prey-laser" data-v="laser">Laser</button>
+          </div>
+        </div>
         <div class="field">
-          <span class="label">Größe der Fliege</span>
+          <span class="label">Größe</span>
           <div class="seg" data-key="size">
             <button type="button" id="size-S" data-v="S">S</button>
             <button type="button" id="size-M" data-v="M">M</button>
@@ -231,11 +273,26 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
           </div>
         </div>
         <div class="field">
-          <span class="label">Geräusch</span>
-          <div class="seg" data-key="buzz">
-            <button type="button" id="buzz-off" data-v="off">Aus</button>
-            <button type="button" id="buzz-fly" data-v="fly">Fliege</button>
-            <button type="button" id="buzz-mosquito" data-v="mosquito">Mücke</button>
+          <span class="label">Beute gleichzeitig</span>
+          <div class="seg" data-key="count">
+            <button type="button" id="count-1" data-v="1">1</button>
+            <button type="button" id="count-2" data-v="2">2</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Spielzeit</span>
+          <div class="seg" data-key="minutes">
+            <button type="button" id="min-5" data-v="5">5′</button>
+            <button type="button" id="min-10" data-v="10">10′</button>
+            <button type="button" id="min-15" data-v="15">15′</button>
+            <button type="button" id="min-0" data-v="0" aria-label="Unbegrenzt">∞</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Ton</span>
+          <div class="seg" data-key="sound">
+            <button type="button" id="sound-off" data-v="false">Aus</button>
+            <button type="button" id="sound-on" data-v="true">An</button>
           </div>
         </div>
         <div class="field">
@@ -250,7 +307,7 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
         <button type="button" id="start" class="start">Start</button>
         <button type="button" id="calibrate" class="secondary">Ecken anpassen</button>
       </div>
-      <p class="keys">Am Laptop: Maus bewegen = steuern · <kbd>Leertaste</kbd> Gefangen · <kbd>L</kbd> Landen · <kbd>A</kbd> Autopilot · <kbd>Esc</kbd> Menü</p>
+      <p class="keys">Am Laptop: Maus = Beute 1 steuern · <kbd>Leertaste</kbd> / <kbd>2</kbd> Beute 1 / 2 gefangen · <kbd>L</kbd> Landen · <kbd>B</kbd> Beute wechseln · <kbd>A</kbd> Autopilot · <kbd>Esc</kbd> Menü</p>
     </div>
 
     <aside class="pair" aria-label="Handy koppeln">
@@ -258,9 +315,24 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
       <div class="qr"><canvas id="qr" width="1" height="1" aria-label="QR-Code zur Fernbedienung"></canvas></div>
       <p class="code" id="code">······</p>
       <p class="status" id="status" data-state="idle">Verbinde mit dem Kopplungsdienst …</p>
+      <p class="slots" id="slots" hidden></p>
       <p class="note" id="note" hidden></p>
-      <p class="tally">Fänge in dieser Sitzung: <strong id="tally">0</strong></p>
     </aside>
+
+    <section class="stats" aria-labelledby="stats-title">
+      <div class="stats-head">
+        <h2 id="stats-title">Letzte Runden</h2>
+        <p class="totals" id="totals"></p>
+        <button type="button" class="link" id="clear-stats" hidden>Verlauf löschen</button>
+      </div>
+      <p class="empty" id="stats-empty">Noch keine Runde gespielt. Nach der ersten Runde stehen hier Beute, Dauer und Fänge.</p>
+      <div class="table-wrap" id="stats-table" hidden>
+        <table>
+          <thead><tr><th>Wann</th><th>Beute</th><th class="num">Dauer</th><th class="num">Fänge</th><th class="num">pro Minute</th></tr></thead>
+          <tbody id="stats-rows"></tbody>
+        </table>
+      </div>
+    </section>
   </section>
 </main>
 
@@ -290,10 +362,12 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
   const handlesBox = document.getElementById('handles');
   const calHelp = document.getElementById('calhelp');
   const statusEl = document.getElementById('status');
+  const slotsEl = document.getElementById('slots');
   const noteEl = document.getElementById('note');
 
   const TAU = Math.PI * 2;
   const rand = (a, b) => a + Math.random() * (b - a);
+  const randi = n => Math.floor(Math.random() * n);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
   const PEER_PREFIX = 'pfotenjagd-brummer-';
@@ -302,6 +376,23 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
   const SIZE_ORDER = ['S', 'M', 'L', 'XL'];
   const INPUT_GAIN = 1.3;      // eine Wischbewegung über die ganze Handybreite = 1,3 × Projektionsbreite
   const HUMAN_HOLD = 2.5;      // so lange nach der letzten Eingabe übernimmt der Autopilot nicht
+  const MAX_PHONES = 2;
+
+  // Verhalten je Beute. k/damp: Feder zum Ziel, wob: Zittern (Anteil der Größe), wobF: Zitterfrequenz,
+  // jink: Abstand und Stärke der kleinen Haken, land/leave: Wahrscheinlichkeiten im Autopiloten
+  const PREY = {
+    fly:      { name: 'Fliege', sizeK: 1,   k: 36, damp: 9,  wob: 1,   wobF: 1,   jink: [0.25, 1.1], jinkS: [0.2, 0.55], vmax: 2.2, flies: true,
+                land: 0.22, leave: 0.08, dist: [0.15, 0.55], ai: [0.6, 2],   rest: [1.5, 4.5] },
+    mosquito: { name: 'Mücke',  sizeK: 0.9, k: 14, damp: 5,  wob: 1.6, wobF: 0.5, jink: [0.6, 2],    jinkS: [0.05, 0.2], vmax: 1,   flies: true,
+                land: 0.15, leave: 0.08, dist: [0.1, 0.35],  ai: [1.2, 3],   rest: [2, 5] },
+    moth:     { name: 'Motte',  sizeK: 1.3, k: 18, damp: 6,  wob: 1.4, wobF: 1.7, jink: [0.12, 0.4], jinkS: [0.15, 0.4], vmax: 1.4, flies: true,
+                land: 0.1,  leave: 0.06, dist: [0.1, 0.4],   ai: [0.3, 1.2], rest: [2, 6] },
+    mouse:    { name: 'Maus',   sizeK: 1.5, k: 30, damp: 11, wob: 0,   wobF: 0,   jink: null,        jinkS: null,        vmax: 1.6, flies: false,
+                land: 0.35, leave: 0.12, dist: [0.2, 0.6],   ai: [0.8, 2.5], rest: [0.6, 2.5], wallHug: true },
+    laser:    { name: 'Laser',  sizeK: 0.5, k: 90, damp: 19, wob: 0.3, wobF: 3,   jink: [0.2, 0.8],  jinkS: [0.3, 0.9],  vmax: 3,   flies: false,
+                land: 0.2,  leave: 0.05, dist: [0.2, 0.7],   ai: [0.2, 1],   rest: [0.3, 1.5] },
+  };
+  const PREY_ORDER = ['fly', 'mosquito', 'moth', 'mouse', 'laser'];
 
   function readStore(key) {
     try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
@@ -310,18 +401,28 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
     try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Speicher nicht verfügbar */ }
   }
 
-  const BUZZ_KINDS = ['off', 'fly', 'mosquito'];
-  const settings = Object.assign({ size: 'M', speed: 1, buzz: 'fly', auto: true }, readStore('brummer.settings'));
+  const settings = Object.assign({ prey: 'fly', size: 'M', speed: 1, count: 1, minutes: 10, sound: true, auto: true }, readStore('brummer.settings'));
+  if ('buzz' in settings) {
+    // ältere Einstellung: Geräusch Aus/Fliege/Mücke
+    settings.sound = settings.buzz !== 'off' && settings.buzz !== false;
+    if (settings.buzz === 'mosquito') settings.prey = 'mosquito';
+    delete settings.buzz;
+  }
+  if (!PREY[settings.prey]) settings.prey = 'fly';
   if (!SIZES[settings.size]) settings.size = 'M';
-  if (settings.buzz === false) settings.buzz = 'off'; // ältere Einstellung war an/aus
-  if (!BUZZ_KINDS.includes(settings.buzz)) settings.buzz = 'fly';
+  if (![1, 2].includes(settings.count)) settings.count = 1;
+  if (![0, 5, 10, 15].includes(settings.minutes)) settings.minutes = 10;
   const DEFAULT_CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]];
   let corners = readStore('brummer.corners');
   if (!Array.isArray(corners) || corners.length !== 4) corners = DEFAULT_CORNERS.map(p => p.slice());
+  let history = readStore('brummer.history');
+  if (!Array.isArray(history)) history = [];
 
   let W = 0, H = 0, M = 0, DPR = 1;
   let mode = 'lobby';
-  let catches = 0;
+  let round = null;
+  const P = () => PREY[settings.prey];
+  const now = () => performance.now() / 1000;
 
   // ---------- Entzerrung (Homografie für den schrägen Projektor) ----------
   function solve(A, b) {
@@ -368,7 +469,10 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
   }
 
   // ---------- Ton ----------
-  let audio = null, master = null, noiseBuf = null, buzz = null;
+  // Alle Geräusche werden live erzeugt: kostenlos, ohne Dateien und ohne Lizenzfragen.
+  // So können Tonhöhe, Lautstärke und Stereo-Richtung jederzeit der Bewegung folgen.
+  let audio = null, master = null, noiseBuf = null;
+  const voices = [];
   function initAudio() {
     if (audio) {
       if (audio.state === 'suspended') audio.resume();
@@ -380,21 +484,33 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
     master = audio.createGain();
     master.gain.value = 0.9;
     master.connect(audio.destination);
-    noiseBuf = audio.createBuffer(1, audio.sampleRate, audio.sampleRate);
+    noiseBuf = audio.createBuffer(1, audio.sampleRate * 2, audio.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-
-    // Beide Geräusche werden live erzeugt: kostenlos, ohne Dateien und ohne Lizenzfragen.
-    // So können Tonhöhe, Lautstärke und Stereo-Richtung jederzeit der Flugbewegung folgen.
-    const osc = (type, f = 100) => { const o = audio.createOscillator(); o.type = type; o.frequency.value = f; o.start(); return o; };
-    const amp = v => { const g = audio.createGain(); g.gain.value = v; return g; };
-    const filter = (type, f, q = 0.7) => { const b = audio.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; return b; };
+  }
+  const osc = (type, f = 100) => { const o = audio.createOscillator(); o.type = type; o.frequency.value = f; o.start(); return o; };
+  const amp = v => { const g = audio.createGain(); g.gain.value = v; return g; };
+  const filter = (type, f, q = 0.7) => { const b = audio.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; return b; };
+  function noiseVoice(type, f, q, rate, out) {
+    // gefiltertes Rauschen mit rhythmischem Pulsieren: Flügelflattern der Motte, Trippeln der Maus
+    const src = audio.createBufferSource();
+    src.buffer = noiseBuf;
+    src.loop = true;
+    src.start(0, Math.random() * 1.5);
+    const pulse = amp(0.5);
+    osc('sine', rate).connect(amp(0.5)).connect(pulse.gain);
+    const g = amp(0);
+    src.connect(filter(type, f, q)).connect(pulse).connect(g).connect(out);
+    return g;
+  }
+  function voiceFor(i) {
+    if (!audio) return null;
+    if (voices[i]) return voices[i];
     const out = amp(1);
     const pan = audio.createStereoPanner ? audio.createStereoPanner() : null;
     if (pan) { out.connect(pan); pan.connect(master); } else out.connect(master);
 
-    // Stubenfliege: Flügelschlag um 190 Hz mit vielen Obertönen, durch Resonanzen gefärbt,
-    // flatternde Lautstärke und ein Hauch Luftrauschen
+    // Stubenfliege: Flügelschlag um 190 Hz mit vielen Obertönen, durch Resonanzen gefärbt
     const flyA = osc('sawtooth'), flyB = osc('square');
     const flyMix = amp(1);
     flyA.connect(flyMix);
@@ -409,14 +525,9 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
     osc('triangle', 7.1).connect(amp(0.15)).connect(flutter.gain);
     const flyGain = amp(0);
     flyBody.connect(flutter).connect(flyGain).connect(out);
-    const air = audio.createBufferSource();
-    air.buffer = noiseBuf;
-    air.loop = true;
-    air.start();
-    const airGain = amp(0);
-    air.connect(filter('bandpass', 1800, 0.8)).connect(airGain).connect(out);
+    const airGain = noiseVoice('bandpass', 1800, 0.8, 23, out);
 
-    // Mücke: hohes, dünnes Sirren um 600 Hz, zwei leicht verstimmte Stimmen mit Vibrato
+    // Mücke: hohes, dünnes Sirren um 600 Hz mit Vibrato
     const mosA = osc('sawtooth'), mosB = osc('sawtooth');
     const vib = amp(9);
     osc('sine', 6.3).connect(vib);
@@ -428,35 +539,67 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
     mosB.connect(mosMix);
     mosMix.connect(filter('highpass', 350)).connect(filter('lowpass', 5000)).connect(mosGain).connect(out);
 
-    buzz = { flyA, flyB, flyGain, airGain, mosA, mosB, mosGain, pan, wander: 0 };
+    const mothGain = noiseVoice('lowpass', 650, 0.7, 15, out);
+    const scurryGain = noiseVoice('bandpass', 3200, 1.2, 21, out);
+
+    voices[i] = { out, pan, flyA, flyB, flyGain, airGain, mosA, mosB, mosGain, mothGain, scurryGain, wander: 0 };
+    return voices[i];
   }
-  function updateBuzz(speedNorm, kind, flying) {
-    if (!buzz) return;
+  function updateVoice(c, speedNorm) {
+    const v = voiceFor(c.i);
+    if (!v) return;
     const t = audio.currentTime;
-    const flyOn = flying && kind === 'fly';
-    const mosOn = flying && kind === 'mosquito';
-    // langsames Zufallswandern der Tonhöhe, damit es nicht nach Maschine klingt
-    buzz.wander += (Math.random() - 0.5) * 2 - buzz.wander * 0.02;
-    const fFly = 185 + speedNorm * 70 + buzz.wander * 0.8 + Math.sin(t * 3.1) * 4;
-    buzz.flyA.frequency.setTargetAtTime(fFly, t, 0.04);
-    buzz.flyB.frequency.setTargetAtTime(fFly * 1.004, t, 0.04);
-    buzz.flyGain.gain.setTargetAtTime(flyOn ? 0.12 + speedNorm * 0.25 : 0, t, flyOn ? 0.03 : 0.06);
-    buzz.airGain.gain.setTargetAtTime(flyOn ? 0.025 + speedNorm * 0.1 : 0, t, 0.05);
-    const fMos = 560 + speedNorm * 120 + buzz.wander * 1.5;
-    buzz.mosA.frequency.setTargetAtTime(fMos, t, 0.05);
-    buzz.mosB.frequency.setTargetAtTime(fMos * 1.006, t, 0.05);
-    const near = 1 + Math.sin(t * 0.7) * 0.3; // mal näher, mal weiter weg
-    buzz.mosGain.gain.setTargetAtTime(mosOn ? (0.06 + speedNorm * 0.1) * near : 0, t, mosOn ? 0.05 : 0.08);
-    if (buzz.pan) buzz.pan.pan.setTargetAtTime(clamp((fly.x / W) * 2 - 1, -1, 1), t, 0.05);
+    const active = settings.sound && mode !== 'calibrate' && c.state === 'fly';
+    const kind = settings.prey;
+    const on = k => active && kind === k;
+    v.wander += (Math.random() - 0.5) * 2 - v.wander * 0.02;
+    const fFly = 185 + speedNorm * 70 + v.wander * 0.8 + Math.sin(t * 3.1 + c.i) * 4 + c.i * 14;
+    v.flyA.frequency.setTargetAtTime(fFly, t, 0.04);
+    v.flyB.frequency.setTargetAtTime(fFly * 1.004, t, 0.04);
+    v.flyGain.gain.setTargetAtTime(on('fly') ? 0.12 + speedNorm * 0.25 : 0, t, 0.04);
+    v.airGain.gain.setTargetAtTime(on('fly') ? 0.025 + speedNorm * 0.1 : 0, t, 0.05);
+    const fMos = 560 + speedNorm * 120 + v.wander * 1.5 + c.i * 40;
+    v.mosA.frequency.setTargetAtTime(fMos, t, 0.05);
+    v.mosB.frequency.setTargetAtTime(fMos * 1.006, t, 0.05);
+    const near = 1 + Math.sin(t * 0.7 + c.i * 2) * 0.3;
+    v.mosGain.gain.setTargetAtTime(on('mosquito') ? (0.06 + speedNorm * 0.1) * near : 0, t, 0.06);
+    v.mothGain.gain.setTargetAtTime(on('moth') ? 0.1 + speedNorm * 0.2 : 0, t, 0.06);
+    v.scurryGain.gain.setTargetAtTime(on('mouse') && speedNorm > 0.08 ? 0.05 + speedNorm * 0.25 : 0, t, 0.04);
+    if (v.pan) v.pan.pan.setTargetAtTime(clamp((c.x / W) * 2 - 1, -1, 1), t, 0.05);
   }
-  function catchSound() {
+  function tone(f0, f1, f2, dur, vol, pan, delay = 0, type = 'sine') {
+    const t = audio.currentTime + delay;
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.linearRampToValueAtTime(f1, t + dur * 0.4);
+    o.frequency.linearRampToValueAtTime(f2, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    let out = master;
+    if (audio.createStereoPanner) {
+      const p = audio.createStereoPanner();
+      p.pan.value = clamp(pan, -1, 1);
+      p.connect(master);
+      out = p;
+    }
+    o.connect(g).connect(out);
+    o.start(t);
+    o.stop(t + dur + 0.05);
+  }
+  function squeak(c, vol = 1) {
+    if (!audio || !settings.sound) return;
+    const pan = (c.x / W) * 2 - 1;
+    tone(2400, 3600, 2700, 0.11, 0.2 * vol, pan);
+    tone(2600, 3900, 3000, 0.09, 0.16 * vol, pan, 0.14);
+  }
+  function catchSound(c) {
     if (!audio) return;
     const t = audio.currentTime;
     const src = audio.createBufferSource();
     src.buffer = noiseBuf;
-    const f = audio.createBiquadFilter();
-    f.type = 'lowpass';
-    f.frequency.value = 900;
+    const f = filter('lowpass', 900);
     const g = audio.createGain();
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(0.5, t + 0.01);
@@ -464,227 +607,242 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
     src.connect(f).connect(g).connect(master);
     src.start(t);
     src.stop(t + 0.3);
-    const o = audio.createOscillator();
-    const og = audio.createGain();
-    o.frequency.setValueAtTime(900, t);
-    o.frequency.exponentialRampToValueAtTime(1800, t + 0.12);
-    og.gain.setValueAtTime(0.0001, t);
-    og.gain.exponentialRampToValueAtTime(0.15, t + 0.02);
-    og.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
-    o.connect(og).connect(master);
-    o.start(t);
-    o.stop(t + 0.25);
+    tone(900, 1400, 1800, 0.2, 0.15, (c.x / W) * 2 - 1);
+    if (settings.prey === 'mouse') squeak(c, 1.2);
   }
 
-  // ---------- Die Fliege ----------
-  const fly = {
-    x: -999, y: -999, vx: 0, vy: 0, angle: 0, tx: 0, ty: 0,
-    state: 'away', timer: 0.6, aiTimer: 0, jinkTimer: 0.5, lastInput: -99, liftAcc: 0, seed: Math.random() * 10,
-  };
-  const flyR = () => SIZES[settings.size] * M;
-  const now = () => performance.now() / 1000;
-  const humanControl = () => now() - fly.lastInput < HUMAN_HOLD;
+  // ---------- Beute ----------
+  class Critter {
+    constructor(i) {
+      this.i = i;
+      this.x = this.y = -999;
+      this.vx = this.vy = 0;
+      this.angle = 0;
+      this.tx = this.ty = 0;
+      this.state = 'away';
+      this.timer = 0.6 + i * 1.5;
+      this.aiTimer = 0;
+      this.jinkTimer = 0.5;
+      this.lastInput = -99;
+      this.liftAcc = 0;
+      this.squeakTimer = rand(1, 3);
+      this.seed = rand(0, 10);
+    }
+    get r() { return SIZES[settings.size] * M * P().sizeK; }
+    get human() { return now() - this.lastInput < HUMAN_HOLD; }
+    get catchable() { return this.state === 'fly' || this.state === 'landed'; }
+  }
+  let critters = [];
+  function syncCritters() {
+    while (critters.length < settings.count) critters.push(new Critter(critters.length));
+    critters.length = settings.count;
+  }
 
-  function flyInFromEdge() {
-    const pad = flyR() * 3;
-    const e = Math.floor(Math.random() * 4);
-    fly.x = e === 1 ? W + pad : e === 3 ? -pad : rand(0, W);
-    fly.y = e === 0 ? -pad : e === 2 ? H + pad : rand(0, H);
-    fly.vx = fly.vy = 0;
-    fly.tx = rand(W * 0.2, W * 0.8);
-    fly.ty = rand(H * 0.2, H * 0.8);
-    fly.state = 'fly';
-    fly.aiTimer = rand(1, 2);
+  function enterFromEdge(c) {
+    const pad = c.r * 3;
+    const e = randi(4);
+    c.x = e === 1 ? W + pad : e === 3 ? -pad : rand(0, W);
+    c.y = e === 0 ? -pad : e === 2 ? H + pad : rand(0, H);
+    c.vx = c.vy = 0;
+    c.tx = rand(W * 0.2, W * 0.8);
+    c.ty = rand(H * 0.2, H * 0.8);
+    c.angle = Math.atan2(c.ty - c.y, c.tx - c.x);
+    c.state = 'fly';
+    c.aiTimer = rand(1, 2);
   }
-  function takeOff() {
-    fly.state = 'fly';
-    const a = rand(0, TAU);
-    fly.vx = Math.cos(a) * M * 0.4;
-    fly.vy = Math.sin(a) * M * 0.4;
-    fly.aiTimer = 0;
+  function takeOff(c) {
+    c.state = 'fly';
+    if (P().flies) {
+      const a = rand(0, TAU);
+      c.vx = Math.cos(a) * M * 0.4;
+      c.vy = Math.sin(a) * M * 0.4;
+    }
+    c.aiTimer = 0;
   }
-  function toggleLand(byHuman) {
-    if (fly.state === 'fly') {
-      fly.state = 'landed';
-      fly.liftAcc = 0;
-      // vom Menschen gelandet: bleibt sitzen, bis jemand sie aufscheucht (der Autopilot wartet 12 s)
-      fly.timer = byHuman ? 12 : rand(1.5, 4.5);
-      if (byHuman) fly.lastInput = now();
-      fly.tx = fly.x;
-      fly.ty = fly.y;
-    } else if (fly.state === 'landed') {
-      takeOff();
-      fly.lastInput = now();
+  function toggleLand(c, byHuman) {
+    if (c.state === 'fly') {
+      c.state = 'landed';
+      c.liftAcc = 0;
+      // vom Menschen gestoppt: bleibt sitzen, bis jemand sie aufscheucht (der Autopilot wartet 12 s)
+      c.timer = byHuman ? 12 : rand(...P().rest);
+      if (byHuman) c.lastInput = now();
+      c.tx = c.x;
+      c.ty = c.y;
+    } else if (c.state === 'landed') {
+      takeOff(c);
+      c.lastInput = now();
     }
     sendState();
   }
-  function steer(px, py) {
-    if (fly.state === 'away' || fly.state === 'caught') return;
-    fly.lastInput = now();
-    if (fly.state === 'landed') {
+  function steer(c, px, py) {
+    if (!c || !c.catchable) return;
+    c.lastInput = now();
+    if (c.state === 'landed') {
       // kleines Zittern von Maus oder Finger scheucht sie noch nicht auf
-      fly.liftAcc += Math.hypot(px, py);
-      if (fly.liftAcc < flyR() * 1.5) return;
-      takeOff();
+      c.liftAcc += Math.hypot(px, py);
+      if (c.liftAcc < c.r * 1.5) return;
+      takeOff(c);
+      sendState();
     }
-    const m = -flyR() * 1.2; // ein kleines Stück über den Rand hinaus erlaubt: die Fliege kann kurz verschwinden
-    fly.tx = clamp(fly.tx + px, m, W - m);
-    fly.ty = clamp(fly.ty + py, m, H - m);
-    fly.lastInput = now();
+    const m = -c.r * 1.2; // ein kleines Stück über den Rand hinaus erlaubt: die Beute kann kurz verschwinden
+    c.tx = clamp(c.tx + px, m, W - m);
+    c.ty = clamp(c.ty + py, m, H - m);
   }
-  function catchFly() {
-    if (fly.state !== 'fly' && fly.state !== 'landed') return;
-    fly.state = 'caught';
-    fly.timer = 0.6;
-    catches++;
-    document.getElementById('tally').textContent = catches;
-    burst(fly.x, fly.y);
-    catchSound();
-    send({ t: 'caught' });
+  function catchCritter(c) {
+    if (!c || !c.catchable) return;
+    c.state = 'caught';
+    c.timer = 0.6;
+    if (round) round.catches++;
+    burst(c.x, c.y);
+    catchSound(c);
+    broadcast({ t: 'caught', critter: c.i });
     sendState();
   }
-  function aiDecide() {
-    const m = flyR() * 2;
+  function aiDecide(c) {
+    const p = P();
+    const m = c.r * 2;
     const roll = Math.random();
-    if (roll < 0.22) {
-      toggleLand(false);
-    } else if (roll < 0.3) {
-      // zum nächsten Rand hinausfliegen
-      const pad = flyR() * 5;
-      const d = [fly.y, W - fly.x, H - fly.y, fly.x];
+    if (roll < p.land) {
+      toggleLand(c, false);
+    } else if (roll < p.land + p.leave) {
+      const pad = c.r * 5;
+      const d = [c.y, W - c.x, H - c.y, c.x];
       const e = d.indexOf(Math.min(...d));
-      fly.tx = e === 1 ? W + pad : e === 3 ? -pad : fly.x;
-      fly.ty = e === 0 ? -pad : e === 2 ? H + pad : fly.y;
-      fly.aiTimer = 4;
+      c.tx = e === 1 ? W + pad : e === 3 ? -pad : c.x;
+      c.ty = e === 0 ? -pad : e === 2 ? H + pad : c.y;
+      c.aiTimer = 4;
+    } else if (p.wallHug && Math.random() < 0.6) {
+      // Mäuse flitzen gern an den Wänden entlang
+      const e = randi(4);
+      c.tx = e === 1 ? W - m : e === 3 ? m : rand(m, W - m);
+      c.ty = e === 0 ? m : e === 2 ? H - m : rand(m, H - m);
+      c.aiTimer = rand(...p.ai);
     } else {
-      const dist = M * rand(0.15, 0.55), a = rand(0, TAU);
-      fly.tx = clamp(fly.x + Math.cos(a) * dist, m, W - m);
-      fly.ty = clamp(fly.y + Math.sin(a) * dist, m, H - m);
-      fly.aiTimer = rand(0.6, 2);
+      const dist = M * rand(...p.dist), a = rand(0, TAU);
+      c.tx = clamp(c.x + Math.cos(a) * dist, m, W - m);
+      c.ty = clamp(c.y + Math.sin(a) * dist, m, H - m);
+      c.aiTimer = rand(...p.ai);
     }
   }
 
-  function updateFly(dt, t) {
-    const r = flyR();
-    const auto = settings.auto && !humanControl();
-    switch (fly.state) {
+  function updateCritter(c, dt, t) {
+    const p = P();
+    const r = c.r;
+    const auto = settings.auto && !c.human && mode !== 'ending';
+    switch (c.state) {
       case 'away':
-        fly.timer -= dt;
-        if (fly.timer <= 0) flyInFromEdge();
+        c.timer -= dt;
+        if (c.timer <= 0 && mode !== 'ending') enterFromEdge(c);
         break;
       case 'caught':
-        fly.timer -= dt;
-        if (fly.timer <= 0) {
-          fly.state = 'away';
-          fly.timer = rand(1.2, 2.5);
+        c.timer -= dt;
+        if (c.timer <= 0) {
+          c.state = 'away';
+          c.timer = rand(1.2, 2.5);
         }
         break;
       case 'landed': {
         const k = Math.exp(-18 * dt);
-        fly.vx *= k; fly.vy *= k;
-        fly.x += fly.vx * dt; fly.y += fly.vy * dt;
-        if (Math.random() < dt * 0.7) fly.angle += rand(-0.6, 0.6); // putzt sich, dreht sich ein wenig
+        c.vx *= k; c.vy *= k;
+        c.x += c.vx * dt; c.y += c.vy * dt;
+        if (Math.random() < dt * 0.7) c.angle += rand(-0.6, 0.6); // putzt sich, schnuppert, dreht sich ein wenig
         if (auto) {
-          fly.timer -= dt;
-          if (fly.timer <= 0) { takeOff(); sendState(); }
+          c.timer -= dt;
+          if (c.timer <= 0) { takeOff(c); sendState(); }
         }
         break;
       }
       case 'fly': {
         if (auto) {
-          fly.aiTimer -= dt;
-          if (fly.aiTimer <= 0) aiDecide();
-          if (fly.state !== 'fly') break;
+          c.aiTimer -= dt;
+          if (c.aiTimer <= 0) aiDecide(c);
+          if (c.state !== 'fly') break;
         }
         const sp = settings.speed;
-        const wob = r * (humanControl() ? 0.7 : 1);
-        const wx = Math.sin(t * 7.3 + fly.seed) * wob + Math.sin(t * 12.7) * wob * 0.4;
-        const wy = Math.cos(t * 6.1 + fly.seed) * wob + Math.sin(t * 15.3 + 1) * wob * 0.4;
-        fly.jinkTimer -= dt;
-        if (fly.jinkTimer <= 0) {
-          // Fliegen schlagen ständig kleine Haken
-          const a = rand(0, TAU), j = M * rand(0.2, 0.55) * sp;
-          fly.vx += Math.cos(a) * j;
-          fly.vy += Math.sin(a) * j;
-          fly.jinkTimer = rand(0.25, 1.1) / sp;
+        const wob = r * p.wob * (c.human ? 0.7 : 1), f = p.wobF;
+        const wx = Math.sin(t * 7.3 * f + c.seed) * wob + Math.sin(t * 12.7 * f) * wob * 0.4;
+        const wy = Math.cos(t * 6.1 * f + c.seed) * wob + Math.sin(t * 15.3 * f + 1) * wob * 0.4;
+        if (p.jink) {
+          c.jinkTimer -= dt;
+          if (c.jinkTimer <= 0) {
+            const a = rand(0, TAU), j = M * rand(...p.jinkS) * sp;
+            c.vx += Math.cos(a) * j;
+            c.vy += Math.sin(a) * j;
+            c.jinkTimer = rand(...p.jink) / sp;
+          }
         }
-        const k = 36 * sp, damp = 9 * Math.sqrt(sp);
-        fly.vx += ((fly.tx + wx - fly.x) * k - fly.vx * damp) * dt;
-        fly.vy += ((fly.ty + wy - fly.y) * k - fly.vy * damp) * dt;
-        const v = Math.hypot(fly.vx, fly.vy), vmax = M * 2.2 * sp;
-        if (v > vmax) { fly.vx *= vmax / v; fly.vy *= vmax / v; }
-        fly.x += fly.vx * dt;
-        fly.y += fly.vy * dt;
+        const k = p.k * sp, damp = p.damp * Math.sqrt(sp);
+        c.vx += ((c.tx + wx - c.x) * k - c.vx * damp) * dt;
+        c.vy += ((c.ty + wy - c.y) * k - c.vy * damp) * dt;
+        const v = Math.hypot(c.vx, c.vy), vmax = M * p.vmax * sp;
+        if (v > vmax) { c.vx *= vmax / v; c.vy *= vmax / v; }
+        c.x += c.vx * dt;
+        c.y += c.vy * dt;
         if (v > r * 2) {
-          let diff = Math.atan2(fly.vy, fly.vx) - fly.angle;
+          let diff = Math.atan2(c.vy, c.vx) - c.angle;
           diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-          fly.angle += diff * Math.min(1, dt * 12);
+          c.angle += diff * Math.min(1, dt * 12);
         }
-        const out = fly.x < -r * 4 || fly.x > W + r * 4 || fly.y < -r * 4 || fly.y > H + r * 4;
-        if (out && auto) {
-          fly.state = 'away';
-          fly.timer = rand(1.5, 3.5);
+        const out = c.x < -r * 4 || c.x > W + r * 4 || c.y < -r * 4 || c.y > H + r * 4;
+        if (out && (auto || mode === 'ending')) {
+          c.state = 'away';
+          c.timer = rand(1.5, 3.5);
+        }
+        if (settings.prey === 'mouse') {
+          c.squeakTimer -= dt;
+          if (c.squeakTimer <= 0) { squeak(c, 0.5); c.squeakTimer = rand(2, 6); }
         }
         break;
       }
     }
-    const speedNorm = fly.state === 'fly' ? clamp(Math.hypot(fly.vx, fly.vy) / (M * 1.5), 0, 1) : 0;
-    updateBuzz(speedNorm, settings.buzz, fly.state === 'fly' && mode !== 'calibrate');
+    const speedNorm = c.state === 'fly' ? clamp(Math.hypot(c.vx, c.vy) / (M * 1.5), 0, 1) : 0;
+    updateVoice(c, speedNorm);
   }
 
+  // ---------- Zeichnen ----------
   function ellipse(c, x, y, rx, ry, rot = 0) {
     c.beginPath();
     c.ellipse(x, y, rx, ry, rot, 0, TAU);
   }
-  function drawWing(c, R, side, spread, alpha) {
+  function wing(c, R, side, spread, alpha, len, wid, ax) {
     c.save();
-    c.translate(R * 0.1, side * R * 0.16);
+    c.translate(R * ax, side * R * 0.14);
     c.rotate(Math.PI - side * spread);
     c.globalAlpha *= alpha;
     c.fillStyle = 'rgba(190,222,255,0.55)';
     c.strokeStyle = 'rgba(235,245,255,0.8)';
     c.lineWidth = Math.max(1, R * 0.03);
-    ellipse(c, R * 0.55, 0, R * 0.62, R * 0.24);
+    ellipse(c, R * len * 0.9, 0, R * len, R * wid);
     c.fill();
     c.stroke();
     c.restore();
   }
-  function drawFly(c, t) {
-    if (fly.state === 'away') return;
-    const R = flyR();
-    let s = 1, a = 1;
-    if (fly.state === 'caught') {
-      const p = 1 - fly.timer / 0.6;
-      s = 1 + p * 0.8;
-      a = 1 - p;
-    }
-    const flying = fly.state === 'fly';
-    c.save();
-    c.globalAlpha = a;
-    c.translate(fly.x, fly.y);
-    const glow = c.createRadialGradient(0, 0, 0, 0, 0, R * 2.4);
-    glow.addColorStop(0, 'rgba(200,225,255,0.2)');
-    glow.addColorStop(1, 'rgba(200,225,255,0)');
-    c.fillStyle = glow;
-    ellipse(c, 0, 0, R * 2.4, R * 2.4); c.fill();
-    c.rotate(fly.angle);
-    c.scale(s, s);
-
-    if (!flying) {
-      c.strokeStyle = '#d9d2c2';
-      c.lineWidth = Math.max(1, R * 0.05);
-      c.lineCap = 'round';
-      for (const side of [-1, 1]) {
-        for (const [ax, ex, ey] of [[0.25, 0.55, 0.5], [0.12, 0.1, 0.62], [0, -0.35, 0.55]]) {
-          c.beginPath();
-          c.moveTo(ax * R, side * R * 0.15);
-          c.lineTo(ex * R, side * ey * R);
-          c.stroke();
-        }
+  function blurWings(c, R, t, flying, len, wid, ax, rate) {
+    for (const side of [-1, 1]) {
+      if (flying) {
+        const f = Math.sin(t * rate + (side > 0 ? 0 : 0.5));
+        for (const sp of [0.45, 0.9, 1.35]) wing(c, R, side, sp + f * 0.2, 0.32 + f * 0.1, len, wid, ax);
+      } else {
+        wing(c, R, side, 0.16, 0.9, len, wid, ax);
       }
     }
+  }
+  function legs(c, R, sets, color, width) {
+    c.strokeStyle = color;
+    c.lineWidth = Math.max(1, R * width);
+    c.lineCap = 'round';
+    for (const side of [-1, 1]) {
+      for (const [ax, kx, ky, ex, ey] of sets) {
+        c.beginPath();
+        c.moveTo(ax * R, side * R * 0.12);
+        c.quadraticCurveTo(kx * R, side * ky * R, ex * R, side * ey * R);
+        c.stroke();
+      }
+    }
+  }
 
-    // Hinterleib
+  function drawFly(c, R, t, flying) {
+    if (!flying) legs(c, R, [[0.25, 0.4, 0.35, 0.55, 0.5], [0.12, 0.12, 0.45, 0.1, 0.62], [0, -0.2, 0.4, -0.35, 0.55]], '#d9d2c2', 0.05);
     const g = c.createLinearGradient(0, -R * 0.34, 0, R * 0.34);
     g.addColorStop(0, '#a88a45');
     g.addColorStop(0.5, '#f0e2ab');
@@ -698,12 +856,10 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
       c.ellipse(x * R, 0, R * 0.08, R * 0.3, 0, -Math.PI / 2, Math.PI / 2);
       c.stroke();
     }
-    // Brust
     c.fillStyle = '#d4cec0';
     ellipse(c, R * 0.12, 0, R * 0.32, R * 0.3); c.fill();
     c.fillStyle = 'rgba(40,40,40,0.3)';
     for (const side of [-1, 1]) { ellipse(c, R * 0.12, side * R * 0.1, R * 0.24, R * 0.035); c.fill(); }
-    // Kopf und Augen
     c.fillStyle = '#bdb6a6';
     ellipse(c, R * 0.48, 0, R * 0.17, R * 0.25); c.fill();
     for (const side of [-1, 1]) {
@@ -712,15 +868,167 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
       c.fillStyle = 'rgba(255,255,255,0.6)';
       ellipse(c, R * 0.53, side * R * 0.15, R * 0.035, R * 0.03); c.fill();
     }
-    // Flügel: im Flug als flirrende Unschärfe, gelandet flach über dem Rücken
+    blurWings(c, R, t, flying, 0.62, 0.24, 0.1, 95);
+  }
+
+  function drawMosquito(c, R, t, flying) {
+    // lange, dünne Beine: im Flug nach hinten gezogen, gelandet weit gespreizt
+    const sets = flying
+      ? [[0.2, 0.1, 0.5, -0.4, 0.75], [0.1, -0.3, 0.45, -1.0, 0.6], [0, -0.6, 0.3, -1.5, 0.35]]
+      : [[0.2, 0.7, 0.6, 1.2, 0.9], [0.1, 0.1, 0.8, 0.0, 1.25], [0, -0.6, 0.7, -1.2, 0.9]];
+    legs(c, R, sets, 'rgba(225,218,200,0.85)', 0.035);
+    c.fillStyle = '#d6cfbf';
+    ellipse(c, -R * 0.62, 0, R * 0.62, R * 0.12); c.fill();
+    c.strokeStyle = 'rgba(60,50,40,0.5)';
+    c.lineWidth = Math.max(1, R * 0.035);
+    for (let i = 1; i < 6; i++) {
+      c.beginPath();
+      c.moveTo(-R * 0.18 * i, -R * 0.1);
+      c.lineTo(-R * 0.18 * i, R * 0.1);
+      c.stroke();
+    }
+    c.fillStyle = '#e4ddce';
+    ellipse(c, R * 0.08, 0, R * 0.2, R * 0.16); c.fill();
+    c.fillStyle = '#cfc7b5';
+    ellipse(c, R * 0.34, 0, R * 0.1, R * 0.1); c.fill();
+    c.strokeStyle = 'rgba(225,218,200,0.9)';
+    c.lineWidth = Math.max(1, R * 0.03);
+    c.beginPath(); c.moveTo(R * 0.42, 0); c.lineTo(R * 0.95, 0); c.stroke(); // Rüssel
     for (const side of [-1, 1]) {
-      if (flying) {
-        const f = Math.sin(t * 95 + (side > 0 ? 0 : 0.5));
-        for (const sp of [0.45, 0.9, 1.35]) drawWing(c, R, side, sp + f * 0.2, 0.32 + f * 0.1);
-      } else {
-        drawWing(c, R, side, 0.16, 0.9);
+      c.beginPath(); c.moveTo(R * 0.4, side * R * 0.05); c.lineTo(R * 0.75, side * R * 0.22); c.stroke();
+    }
+    blurWings(c, R, t, flying, 0.62, 0.13, 0.05, 140);
+  }
+
+  function drawMoth(c, R, t, flying) {
+    // Draufsicht: im Flug klappen die Flügel auf und zu, gelandet liegen sie als Dreieck flach
+    const open = flying ? 0.3 + 0.7 * Math.abs(Math.sin(t * 13)) : 1;
+    for (const side of [-1, 1]) {
+      c.save();
+      c.scale(1, side * open);
+      c.fillStyle = '#e4d6b4';
+      c.beginPath();
+      c.moveTo(R * 0.3, R * 0.05);
+      c.quadraticCurveTo(R * 0.35, R * 0.9, -R * 0.25, R * 1.05);
+      c.quadraticCurveTo(-R * 0.55, R * 0.7, -R * 0.35, R * 0.1);
+      c.closePath();
+      c.fill();
+      c.fillStyle = '#d2c194';
+      c.beginPath();
+      c.moveTo(-R * 0.2, R * 0.08);
+      c.quadraticCurveTo(-R * 0.55, R * 0.75, -R * 0.75, R * 0.55);
+      c.quadraticCurveTo(-R * 0.75, R * 0.2, -R * 0.45, R * 0.06);
+      c.closePath();
+      c.fill();
+      c.fillStyle = 'rgba(120,95,55,0.45)';
+      ellipse(c, -R * 0.02, R * 0.55, R * 0.1, R * 0.08); c.fill();
+      ellipse(c, -R * 0.45, R * 0.38, R * 0.07, R * 0.06); c.fill();
+      c.restore();
+    }
+    c.fillStyle = '#f0e6cc';
+    ellipse(c, -R * 0.15, 0, R * 0.5, R * 0.14); c.fill();
+    c.fillStyle = '#e8dcbc';
+    ellipse(c, R * 0.38, 0, R * 0.12, R * 0.12); c.fill();
+    c.strokeStyle = 'rgba(230,220,195,0.9)';
+    c.lineWidth = Math.max(1, R * 0.035);
+    for (const side of [-1, 1]) {
+      c.beginPath();
+      c.moveTo(R * 0.45, side * R * 0.05);
+      c.quadraticCurveTo(R * 0.75, side * R * 0.1, R * 0.85, side * R * 0.38);
+      c.stroke();
+    }
+  }
+
+  function drawMouse(c, r, ph, moving) {
+    const wag = Math.sin(ph * (moving ? 14 : 3)) * r * (moving ? 0.5 : 0.25);
+    c.lineCap = 'round';
+    c.strokeStyle = '#c99a9a';
+    c.lineWidth = r * 0.11;
+    c.beginPath();
+    c.moveTo(-r * 0.95, 0);
+    c.bezierCurveTo(-r * 1.6, wag, -r * 2.1, -wag, -r * 2.8, wag * 0.6);
+    c.stroke();
+    if (moving) {
+      const s = Math.sin(ph * 22) * r * 0.15;
+      c.fillStyle = '#e8b4b4';
+      for (const side of [-1, 1]) {
+        ellipse(c, r * 0.45 + s * side, side * r * 0.56, r * 0.13, r * 0.08); c.fill();
+        ellipse(c, -r * 0.5 - s * side, side * r * 0.56, r * 0.15, r * 0.09); c.fill();
       }
     }
+    const g = c.createRadialGradient(-r * 0.1, -r * 0.25, r * 0.1, 0, 0, r * 1.15);
+    g.addColorStop(0, '#dcd6cd');
+    g.addColorStop(1, '#8d867c');
+    c.fillStyle = g;
+    ellipse(c, 0, 0, r * 1.05, r * 0.62); c.fill();
+    c.fillStyle = '#c6bfb5';
+    ellipse(c, r * 0.85, 0, r * 0.52, r * 0.42); c.fill();
+    for (const side of [-1, 1]) {
+      c.fillStyle = '#a49d93';
+      ellipse(c, r * 0.6, side * r * 0.4, r * 0.27, r * 0.27); c.fill();
+      c.fillStyle = '#eaafb2';
+      ellipse(c, r * 0.62, side * r * 0.41, r * 0.17, r * 0.17); c.fill();
+    }
+    for (const side of [-1, 1]) {
+      c.fillStyle = '#14100c';
+      ellipse(c, r * 1.05, side * r * 0.17, r * 0.068, r * 0.068); c.fill();
+    }
+    c.fillStyle = '#f08a9a';
+    ellipse(c, r * 1.36, 0, r * 0.085, r * 0.085); c.fill();
+    c.strokeStyle = 'rgba(255,255,255,0.5)';
+    c.lineWidth = Math.max(1, r * 0.025);
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < 3; i++) {
+        c.beginPath();
+        c.moveTo(r * 1.27, side * r * 0.07);
+        c.lineTo(r * 1.72, side * r * (0.12 + i * 0.16));
+        c.stroke();
+      }
+    }
+  }
+
+  function drawLaser(c, r, ph) {
+    const flicker = 1 + Math.sin(ph * 41) * 0.07 + Math.sin(ph * 17) * 0.05;
+    const R = r * 3.2 * flicker;
+    const g = c.createRadialGradient(0, 0, 0, 0, 0, R);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.12, 'rgba(255,90,100,1)');
+    g.addColorStop(0.3, 'rgba(255,30,50,0.6)');
+    g.addColorStop(1, 'rgba(255,0,40,0)');
+    c.fillStyle = g;
+    ellipse(c, 0, 0, R, R); c.fill();
+  }
+
+  function drawCritter(c, cr, t) {
+    if (cr.state === 'away') return;
+    const R = cr.r;
+    let s = 1, a = 1;
+    if (cr.state === 'caught') {
+      const p = 1 - cr.timer / 0.6;
+      s = 1 + p * 0.8;
+      a = 1 - p;
+    }
+    const flying = cr.state === 'fly';
+    const type = settings.prey;
+    c.save();
+    c.globalAlpha = a;
+    c.translate(cr.x, cr.y);
+    if (type !== 'laser') {
+      // leichter Lichthof, damit die Beute auf dem Boden besser zu sehen ist
+      const glow = c.createRadialGradient(0, 0, 0, 0, 0, R * 2.4);
+      glow.addColorStop(0, 'rgba(200,225,255,0.2)');
+      glow.addColorStop(1, 'rgba(200,225,255,0)');
+      c.fillStyle = glow;
+      ellipse(c, 0, 0, R * 2.4, R * 2.4); c.fill();
+    }
+    c.rotate(cr.angle);
+    c.scale(s, s);
+    const moving = Math.hypot(cr.vx, cr.vy) > R * 0.4;
+    if (type === 'fly') drawFly(c, R, t, flying);
+    else if (type === 'mosquito') drawMosquito(c, R, t, flying);
+    else if (type === 'moth') drawMoth(c, R, t, flying);
+    else if (type === 'mouse') drawMouse(c, R, t + cr.seed, flying && moving);
+    else drawLaser(c, R, t + cr.seed);
     c.restore();
   }
 
@@ -760,7 +1068,6 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
     }
     c.globalAlpha = 1;
   }
-
   function drawGrid(c) {
     c.strokeStyle = 'rgba(108,178,255,0.55)';
     c.lineWidth = 2;
@@ -774,18 +1081,100 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
     ellipse(c, W / 2, H / 2, M * 0.3, M * 0.3); c.stroke();
   }
 
-  // ---------- Verbindung zum Handy (PeerJS / WebRTC) ----------
-  let peer = null, conn = null;
+  // ---------- Runden und Statistik ----------
+  function formatTime(sec) {
+    sec = Math.max(0, Math.round(sec));
+    return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+  }
+  function timeLeft() {
+    if (!round || !settings.minutes) return null;
+    return Math.max(0, settings.minutes * 60 - round.elapsed);
+  }
+  function startRound() {
+    round = { start: Date.now(), elapsed: 0, catches: 0, preys: [settings.prey], count: settings.count };
+  }
+  function endRound() {
+    if (!round) return null;
+    const r = round;
+    round = null;
+    if (r.elapsed < 5 && !r.catches) return null; // versehentlich gestartet
+    const entry = { t: r.start, preys: r.preys, secs: Math.round(r.elapsed), catches: r.catches, count: r.count };
+    history.unshift(entry);
+    history = history.slice(0, 30);
+    writeStore('brummer.history', history);
+    renderStats();
+    return entry;
+  }
+  function renderStats() {
+    const rows = document.getElementById('stats-rows');
+    const has = history.length > 0;
+    document.getElementById('stats-empty').hidden = has;
+    document.getElementById('stats-table').hidden = !has;
+    document.getElementById('clear-stats').hidden = !has;
+    const totalsEl = document.getElementById('totals');
+    rows.textContent = '';
+    if (!has) { totalsEl.textContent = ''; return; }
+    const total = history.reduce((s, h) => s + h.catches, 0);
+    const secs = history.reduce((s, h) => s + h.secs, 0);
+    const best = Math.max(...history.map(h => h.catches));
+    totalsEl.innerHTML = `<strong>${total}</strong> ${total === 1 ? 'Fang' : 'Fänge'} in <strong>${history.length}</strong> ${history.length === 1 ? 'Runde' : 'Runden'} · ${formatTime(secs)} gespielt · Rekord <strong>${best}</strong>`;
+    let bestMarked = false;
+    for (const h of history.slice(0, 8)) {
+      const tr = document.createElement('tr');
+      if (h.catches === best && best > 0 && !bestMarked) { tr.className = 'best'; bestMarked = true; }
+      const when = new Date(h.t).toLocaleString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      const perMin = h.secs > 0 ? (h.catches / (h.secs / 60)).toFixed(1).replace('.', ',') : '–';
+      const kinds = (h.preys || [h.prey]).map(k => (PREY[k] ? PREY[k].name : k));
+      const name = (kinds.length > 2 ? 'Gemischt' : kinds.join(' + ')) + (h.count > 1 ? ' ×2' : '');
+      for (const [text, cls] of [[when], [name], [formatTime(h.secs), 'num'], [String(h.catches), 'num'], [perMin, 'num']]) {
+        const td = document.createElement('td');
+        td.textContent = text;
+        if (cls) td.className = cls;
+        tr.appendChild(td);
+      }
+      rows.appendChild(tr);
+    }
+  }
+  let clearArmed = false;
+  document.getElementById('clear-stats').addEventListener('click', e => {
+    // zweistufig statt Dialog: erster Klick fragt nach, zweiter löscht
+    if (!clearArmed) {
+      clearArmed = true;
+      e.target.textContent = 'Wirklich löschen?';
+      setTimeout(() => { clearArmed = false; e.target.textContent = 'Verlauf löschen'; }, 4000);
+      return;
+    }
+    history = [];
+    writeStore('brummer.history', history);
+    clearArmed = false;
+    e.target.textContent = 'Verlauf löschen';
+    renderStats();
+  });
+
+  // ---------- Verbindung zu den Handys (PeerJS / WebRTC) ----------
+  let peer = null;
+  const conns = new Array(MAX_PHONES).fill(null);
   let code = readStore('brummer.code');
   if (typeof code !== 'string' || !/^[A-Z2-9]{6}$/.test(code)) code = newCode();
   function newCode() {
     let s = '';
-    for (let i = 0; i < 6; i++) s += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+    for (let i = 0; i < 6; i++) s += CODE_CHARS[randi(CODE_CHARS.length)];
     return s;
   }
   function setStatus(text, state) {
     statusEl.textContent = text;
     statusEl.dataset.state = state;
+  }
+  function updateConnStatus() {
+    const n = conns.filter(c => c && c.open).length;
+    if (n === 0) {
+      setStatus('Bereit. QR-Code mit dem Handy scannen.', 'idle');
+      slotsEl.hidden = true;
+    } else {
+      setStatus(n === 1 ? 'Ein Handy verbunden' : 'Zwei Handys verbunden', 'ok');
+      slotsEl.hidden = false;
+      slotsEl.textContent = n < MAX_PHONES ? 'Ein zweites Handy kann denselben QR-Code scannen.' : 'Mehr als zwei Handys gehen nicht.';
+    }
   }
   function controllerUrl() {
     const u = new URL('handy.html', location.href);
@@ -825,20 +1214,25 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
     peer.on('open', () => {
       writeStore('brummer.code', code);
       renderQr();
-      if (!conn) setStatus('Bereit. QR-Code mit dem Handy scannen.', 'idle');
+      updateConnStatus();
     });
     peer.on('connection', c => {
-      if (conn) conn.close();
-      conn = c;
       c.on('open', () => {
-        setStatus('Handy verbunden', 'ok');
+        let slot = conns.findIndex(x => !x || !x.open);
+        if (slot < 0) {
+          try { c.send({ t: 'full' }); } catch { /* egal */ }
+          setTimeout(() => c.close(), 300);
+          return;
+        }
+        conns[slot] = c;
+        c.on('data', msg => onMessage(msg, slot));
+        c.on('close', () => {
+          if (conns[slot] !== c) return;
+          conns[slot] = null;
+          updateConnStatus();
+        });
+        updateConnStatus();
         sendState();
-      });
-      c.on('data', onMessage);
-      c.on('close', () => {
-        if (conn !== c) return;
-        conn = null;
-        setStatus('Handy getrennt. Zum Verbinden erneut scannen.', 'warn');
       });
     });
     peer.on('disconnected', () => {
@@ -854,31 +1248,58 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
       }
     });
   }
-  function send(msg) {
-    if (conn && conn.open) {
-      try { conn.send(msg); } catch { /* Verbindung gerade weg */ }
+  const critterFor = slot => critters[Math.min(slot, critters.length - 1)];
+  function sendTo(slot, msg) {
+    const c = conns[slot];
+    if (c && c.open) {
+      try { c.send(msg); } catch { /* Verbindung gerade weg */ }
     }
   }
-  function sendState() {
-    send({ t: 'state', catches, landed: fly.state === 'landed', auto: settings.auto, buzz: settings.buzz, size: settings.size });
+  function broadcast(msg) {
+    for (let i = 0; i < MAX_PHONES; i++) sendTo(i, msg);
   }
-  function onMessage(msg) {
+  function sendState() {
+    const p = P();
+    for (let slot = 0; slot < MAX_PHONES; slot++) {
+      if (!conns[slot]) continue;
+      const cr = critterFor(slot);
+      sendTo(slot, {
+        t: 'state',
+        mode: mode === 'ending' ? 'play' : mode,
+        critter: cr ? cr.i : 0,
+        count: settings.count,
+        landed: !!cr && cr.state === 'landed',
+        prey: settings.prey,
+        preyName: p.name,
+        flies: p.flies,
+        sound: settings.sound,
+        auto: settings.auto,
+        size: settings.size,
+        catches: round ? round.catches : 0,
+        timeLeft: timeLeft(),
+      });
+    }
+  }
+  function onMessage(msg, slot) {
     if (!msg || typeof msg !== 'object') return;
+    const cr = critterFor(slot);
     switch (msg.t) {
       case 'move':
         if (Number.isFinite(msg.dx) && Number.isFinite(msg.dy)) {
-          steer(clamp(msg.dx, -2, 2) * W * INPUT_GAIN, clamp(msg.dy, -2, 2) * W * INPUT_GAIN);
+          steer(cr, clamp(msg.dx, -2, 2) * W * INPUT_GAIN, clamp(msg.dy, -2, 2) * W * INPUT_GAIN);
         }
         break;
-      case 'catch': catchFly(); break;
-      case 'land': toggleLand(true); break;
+      case 'catch': catchCritter(cr); break;
+      case 'land': if (cr) toggleLand(cr, true); break;
       case 'auto': setSetting('auto', !settings.auto); break;
-      case 'buzz': setSetting('buzz', BUZZ_KINDS[(BUZZ_KINDS.indexOf(settings.buzz) + 1) % BUZZ_KINDS.length]); break;
+      case 'sound': case 'buzz': setSetting('sound', !settings.sound); break;
+      case 'prey': setSetting('prey', PREY_ORDER[(PREY_ORDER.indexOf(settings.prey) + 1) % PREY_ORDER.length]); break;
       case 'size': {
         const i = clamp(SIZE_ORDER.indexOf(settings.size) + (msg.step > 0 ? 1 : -1), 0, SIZE_ORDER.length - 1);
         setSetting('size', SIZE_ORDER[i]);
         break;
       }
+      case 'start': if (mode === 'lobby') startPlay(); break;
     }
   }
 
@@ -886,12 +1307,16 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
   function setSetting(key, value) {
     settings[key] = value;
     writeStore('brummer.settings', settings);
+    if (key === 'count') syncCritters();
+    if (key === 'prey' && round && !round.preys.includes(value)) round.preys.push(value);
+    if (key === 'count' && round) round.count = Math.max(round.count, value);
     syncMenu();
     sendState();
   }
   function startPlay() {
     initAudio();
     mode = 'play';
+    startRound();
     lobby.hidden = true;
     document.body.classList.add('playing');
     const el = document.documentElement;
@@ -903,14 +1328,34 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
       } catch { /* optional */ }
     }
     requestWakeLock();
+    sendState();
+  }
+  let endingTimer = 0;
+  function finishByTime() {
+    // Spielzeit um: die Beute fliegt davon, dann erscheint das Menü mit der Statistik
+    mode = 'ending';
+    endingTimer = 3;
+    for (const c of critters) {
+      if (!c.catchable) continue;
+      if (c.state === 'landed') takeOff(c);
+      const pad = c.r * 6;
+      const d = [c.y, W - c.x, H - c.y, c.x];
+      const e = d.indexOf(Math.min(...d));
+      c.tx = e === 1 ? W + pad : e === 3 ? -pad : c.x;
+      c.ty = e === 0 ? -pad : e === 2 ? H + pad : c.y;
+    }
   }
   function showLobby() {
+    const entry = endRound();
+    if (entry) broadcast({ t: 'roundEnd', catches: entry.catches, secs: entry.secs });
     mode = 'lobby';
     lobby.hidden = false;
     handlesBox.hidden = true;
     calHelp.hidden = true;
     document.body.classList.remove('playing');
     if (document.pointerLockElement) document.exitPointerLock();
+    for (const c of critters) if (c.state === 'away') c.timer = Math.min(c.timer, 1);
+    sendState();
   }
   function startCalibration() {
     initAudio();
@@ -933,20 +1378,22 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
     if (document.visibilityState === 'visible' && mode === 'play') requestWakeLock();
   });
   document.addEventListener('fullscreenchange', () => {
-    if (!document.fullscreenElement && mode === 'play') showLobby();
+    if (!document.fullscreenElement && (mode === 'play' || mode === 'ending')) showLobby();
   });
 
   // ---------- Eingaben am Laptop ----------
   document.addEventListener('mousemove', e => {
     // Pointer-Lock liefert beim Einrasten manchmal einen riesigen Sprung, daher begrenzen
-    if (mode === 'play') steer(clamp(e.movementX, -120, 120) * 1.2, clamp(e.movementY, -120, 120) * 1.2);
+    if (mode === 'play') steer(critters[0], clamp(e.movementX, -120, 120) * 1.2, clamp(e.movementY, -120, 120) * 1.2);
   });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') { if (mode !== 'lobby') showLobby(); return; }
     if (mode === 'lobby' && e.target.closest('button')) return;
-    if (e.code === 'Space') { e.preventDefault(); initAudio(); catchFly(); }
-    else if (e.key === 'l' || e.key === 'L') toggleLand(true);
+    if (e.code === 'Space') { e.preventDefault(); initAudio(); catchCritter(critters[0]); }
+    else if (e.key === '2') { initAudio(); catchCritter(critters[1]); }
+    else if (e.key === 'l' || e.key === 'L') toggleLand(critters[0], true);
     else if (e.key === 'a' || e.key === 'A') setSetting('auto', !settings.auto);
+    else if (e.key === 'b' || e.key === 'B') setSetting('prey', PREY_ORDER[(PREY_ORDER.indexOf(settings.prey) + 1) % PREY_ORDER.length]);
   });
 
   let dragging = null;
@@ -988,8 +1435,8 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
       const b = e.target.closest('button');
       if (!b) return;
       const key = seg.dataset.key, raw = b.dataset.v;
-      initAudio(); // damit man die Geräusch-Auswahl gleich hört
-      setSetting(key, key === 'size' || key === 'buzz' ? raw : JSON.parse(raw));
+      initAudio(); // damit man die Auswahl gleich hört
+      setSetting(key, key === 'size' || key === 'prey' ? raw : JSON.parse(raw));
     });
   }
 
@@ -1006,24 +1453,37 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
     applyWarp();
   }
   let last = performance.now();
+  let lastSecond = -1;
   function frame(ms) {
-    const dt = Math.min(0.05, (ms - last) / 1000);
+    const dt = Math.min(0.05, Math.max(0, (ms - last) / 1000));
     last = ms;
     const t = ms / 1000;
-    updateFly(dt, t);
+    for (const c of critters) updateCritter(c, dt, t);
     updateSparks(dt);
+    if (mode === 'play' && round) {
+      round.elapsed += dt;
+      const left = timeLeft();
+      if (left !== null && left <= 0) finishByTime();
+      const sec = Math.floor(round.elapsed);
+      if (sec !== lastSecond) { lastSecond = sec; sendState(); }
+    } else if (mode === 'ending') {
+      endingTimer -= dt;
+      if (endingTimer <= 0 || critters.every(c => c.state === 'away')) showLobby();
+    }
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, W, H);
     if (mode === 'calibrate') drawGrid(ctx);
-    drawFly(ctx, t);
+    for (const c of critters) drawCritter(ctx, c, t);
     drawSparks(ctx);
     requestAnimationFrame(frame);
   }
 
   window.addEventListener('resize', resize);
   resize();
+  syncCritters();
   syncMenu();
+  renderStats();
   checkOrigin();
   renderQr();
   openPeer();

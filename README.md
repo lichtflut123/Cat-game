@@ -33,29 +33,47 @@ Es gibt keine Abhängigkeiten und keinen Build-Schritt. Über GitHub Pages läss
 
 # Brummer (Projektor-Spiel)
 
-Ein Projektor wirft eine leuchtende Fliege auf den Boden. Du steuerst sie mit dem Handy, die Katze jagt sie.
+Ein Projektor wirft leuchtende Beute auf den Boden. Du steuerst sie mit dem Handy, die Katze jagt sie.
 
-- `brummer/index.html` läuft auf dem **Laptop am Projektor** und zeigt die Fliege auf Schwarz (Schwarz = kein Licht)
+- `brummer/index.html` läuft auf dem **Laptop am Projektor** und zeigt die Beute auf Schwarz (Schwarz = kein Licht)
 - `brummer/handy.html` ist die **Fernbedienung** auf dem Handy
+
+## Beute
+
+| Beute | Bewegung | Geräusch |
+|---|---|---|
+| Fliege | flink, ständig kleine Haken, landet oft | Brummen um 190–250 Hz |
+| Mücke | langsam, schwebend, lange Beine | hohes Sirren um 600 Hz |
+| Motte | flatterig, unruhige Schleifen, Flügel klappen auf und zu | weiches Flügelflattern |
+| Maus | rennt geradeaus, gern an den Wänden entlang, bleibt stehen und schnuppert | Trippeln und Quieken |
+| Laserpunkt | blitzschnell, zittert, stoppt abrupt | still |
+
+Alle Geräusche werden live erzeugt (kostenlos, keine Audiodateien). Tonhöhe und Lautstärke folgen der Geschwindigkeit, die Richtung kommt per Stereo aus der Position.
 
 ## So geht's
 
 1. `brummer/` auf dem Laptop öffnen. Es erscheinen ein QR-Code und ein 6-stelliger Code.
-2. QR-Code mit dem Handy scannen (oder `handy.html` öffnen und den Code eintippen).
+2. QR-Code mit dem Handy scannen (oder `handy.html` öffnen und den Code eintippen). **Ein zweites Handy** kann denselben Code scannen und steuert dann eine zweite Beute („Beute gleichzeitig: 2“).
 3. **Ecken anpassen**: die vier gelben Griffe ziehen, bis das Raster auf dem Boden rechtwinklig und der Kreis rund aussieht. Damit wird das Trapez eines schräg stehenden Projektors ausgeglichen. Die Einstellung wird gespeichert.
-4. **Start**: Der Laptop geht in den Vollbildmodus.
+4. **Start** am Laptop (oder „Runde starten“ auf dem Handy). Ist die **Spielzeit** (5/10/15 Minuten oder unbegrenzt) um, fliegt die Beute davon und das Menü zeigt die Statistik.
 
 ## Steuerung
 
 | Handy | Laptop | Wirkung |
 |---|---|---|
-| Wischen auf der Fläche | Maus/Touchpad bewegen | Fliege steuern (relativ, wie ein Touchpad) |
-| Gefangen! | Leertaste | Fang zählen, Funkenregen, Fliege kommt woanders wieder. Das Handy vibriert (Android) bzw. die Wischfläche blinkt (iPhone) |
-| Landen / Abheben | L | Fliege setzt sich hin oder fliegt los |
-| Autopilot | A | Fliegt selbst, sobald 2,5 s niemand steuert |
-| Ton: Fliege / Mücke / Aus | Menü „Geräusch“ | Brummen einer Stubenfliege oder hohes Mückensirren. Tonhöhe und Lautstärke folgen der Geschwindigkeit, Stereo nach Position. Beides wird live erzeugt, also kostenlos und ohne Lizenzfragen |
+| Wischen auf der Fläche | Maus/Touchpad bewegen (Beute 1) | Beute steuern (relativ, wie ein Touchpad) |
+| Gefangen! | Leertaste (Beute 1), 2 (Beute 2) | Fang zählen, Funkenregen, Beute kommt woanders wieder. Android vibriert, auf dem iPhone blinkt die Wischfläche |
+| Landen / Abheben (Maus und Laser: Anhalten / Weiter) | L | Beute setzt sich hin oder bleibt stehen |
+| Beute: … | B | Wechselt Fliege → Mücke → Motte → Maus → Laser |
+| Autopilot | A | Beute bewegt sich selbst, sobald 2,5 s niemand steuert |
+| Ton an/aus | – | Geräusche an oder aus |
 | Größe − / + | – | S, M, L, XL |
-| – | Esc | Zurück ins Menü |
+| Runde starten | Start | Neue Runde |
+| – | Esc | Runde beenden, zurück ins Menü |
+
+## Statistik
+
+Unter dem Menü stehen die letzten Runden mit Zeitpunkt, Beute, Dauer, Fängen und Fängen pro Minute, dazu die Summe aller Runden und der Rekord. Der Verlauf liegt nur im Browser des Laptops und lässt sich dort löschen.
 
 ## iPhone
 

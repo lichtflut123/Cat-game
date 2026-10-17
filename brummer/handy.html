@@ -153,7 +153,31 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 }
 .toggle[aria-pressed="true"] { background: var(--sky); border-color: var(--sky); color: #06152b; }
 .size { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; }
-.size .label { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-right: auto; }
+.size .prey { flex: 1; width: auto; min-width: 0; height: 44px; padding: 0 14px; text-align: left; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.roundbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 6px 6px 14px;
+  box-sizing: border-box;
+  border-radius: 14px;
+  border: 1px solid rgba(108, 178, 255, 0.22);
+  background: rgba(108, 178, 255, 0.08);
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+}
+.roundbar span { min-width: 0; }
+.roundbar button {
+  margin-left: auto;
+  flex: none;
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 14px;
+  background: var(--amber);
+  color: var(--amber-ink);
+  font-weight: 700;
+}
 .size button { width: 52px; height: 44px; border-radius: 12px; border: 1.5px solid var(--line); background: transparent; font-size: 1.4rem; font-weight: 700; }
 .size output { min-width: 2.5ch; text-align: center; font-family: var(--display); font-size: 1.3rem; }
 .catch {
@@ -188,19 +212,23 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--sky); outli
   </section>
 
   <section id="remote" hidden>
-    <div id="pad" aria-label="Wischfläche zum Steuern der Fliege">
+    <div class="roundbar" aria-live="polite">
+      <span id="round-text">Laptop zeigt das Menü</span>
+      <button type="button" id="start-round">Runde starten</button>
+    </div>
+    <div id="pad" aria-label="Wischfläche zum Steuern der Beute">
       <div id="finger" hidden></div>
-      <p>Hier wischen, um die Fliege zu steuern</p>
+      <p id="pad-hint">Hier wischen, um die Fliege zu steuern</p>
     </div>
     <div class="controls">
       <button type="button" class="toggle" id="land" aria-pressed="false">Landen</button>
       <button type="button" class="toggle" id="auto" aria-pressed="true">Autopilot</button>
-      <button type="button" class="toggle" id="buzz" aria-pressed="true">Ton: Fliege</button>
+      <button type="button" class="toggle" id="sound" aria-pressed="true">Ton an</button>
       <div class="size">
-        <span class="label">Größe</span>
-        <button type="button" id="smaller" aria-label="Fliege kleiner">−</button>
-        <output id="size">M</output>
-        <button type="button" id="bigger" aria-label="Fliege größer">+</button>
+        <button type="button" class="toggle prey" id="prey">Beute: Fliege</button>
+        <button type="button" id="smaller" aria-label="Beute kleiner">−</button>
+        <output id="size" aria-label="Größe">M</output>
+        <button type="button" id="bigger" aria-label="Beute größer">+</button>
       </div>
       <button type="button" class="catch" id="catch">Gefangen!</button>
     </div>
@@ -260,6 +288,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--sky); outli
       conn = c;
       c.on('open', () => {
         try { localStorage.setItem('brummer.lastCode', code); } catch { /* egal */ }
+        lastEnd = null;
+        rejected = false;
         setStatus('Verbunden', 'ok');
         showRemote(true);
         $('connect-btn').disabled = false;
@@ -269,9 +299,11 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--sky); outli
       c.on('close', () => {
         if (conn !== c) return;
         conn = null;
-        setStatus('Verbindung verloren', 'warn');
+        setStatus(rejected ? 'Nicht verbunden' : 'Verbindung verloren', 'warn');
         showRemote(false);
-        showError('Die Verbindung zum Projektor ist abgebrochen. Tippe auf „Verbinden“, um es erneut zu versuchen.');
+        showError(rejected
+          ? 'Es sind schon zwei Handys verbunden. Mehr gehen nicht.'
+          : 'Die Verbindung zum Projektor ist abgebrochen. Tippe auf „Verbinden“, um es erneut zu versuchen.');
       });
     });
     peer.on('error', e => {
@@ -288,16 +320,40 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--sky); outli
       try { conn.send(msg); } catch { /* Verbindung gerade weg */ }
     }
   }
+  let lastEnd = null, rejected = false;
+  function formatTime(sec) {
+    sec = Math.max(0, Math.round(sec));
+    return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+  }
   function onMessage(msg) {
     if (!msg || typeof msg !== 'object') return;
     if (msg.t === 'state') {
       $('catches').textContent = msg.catches;
+      setStatus(msg.count > 1 ? `Verbunden · Beute ${msg.critter + 1}` : 'Verbunden', 'ok');
+      // Maus und Laser fliegen nicht: dort heißt es Anhalten statt Landen
       $('land').setAttribute('aria-pressed', String(!!msg.landed));
-      $('land').textContent = msg.landed ? 'Abheben' : 'Landen';
+      $('land').textContent = msg.flies ? (msg.landed ? 'Abheben' : 'Landen') : (msg.landed ? 'Weiter' : 'Anhalten');
       $('auto').setAttribute('aria-pressed', String(!!msg.auto));
-      $('buzz').setAttribute('aria-pressed', String(msg.buzz !== 'off'));
-      $('buzz').textContent = `Ton: ${{ off: 'Aus', fly: 'Fliege', mosquito: 'Mücke' }[msg.buzz] || 'Fliege'}`;
+      $('sound').setAttribute('aria-pressed', String(!!msg.sound));
+      $('sound').textContent = msg.sound ? 'Ton an' : 'Ton aus';
+      $('prey').textContent = `Beute: ${msg.preyName}`;
+      $('pad-hint').textContent = `Hier wischen, um ${msg.prey === 'laser' ? 'den Laserpunkt' : 'die ' + msg.preyName} zu steuern`;
       $('size').textContent = msg.size;
+      const playing = msg.mode === 'play';
+      $('start-round').hidden = playing || msg.mode === 'calibrate';
+      if (playing) {
+        lastEnd = null;
+        $('round-text').textContent = msg.timeLeft === null ? 'Runde läuft · ohne Zeitlimit' : `Runde läuft · noch ${formatTime(msg.timeLeft)}`;
+      } else if (msg.mode === 'calibrate') {
+        $('round-text').textContent = 'Laptop: Ecken anpassen';
+      } else {
+        $('round-text').textContent = lastEnd ? `Runde vorbei: ${lastEnd.catches} ${lastEnd.catches === 1 ? 'Fang' : 'Fänge'} in ${formatTime(lastEnd.secs)}` : 'Laptop zeigt das Menü';
+      }
+    } else if (msg.t === 'roundEnd') {
+      lastEnd = msg;
+      $('round-text').textContent = `Runde vorbei: ${msg.catches} ${msg.catches === 1 ? 'Fang' : 'Fänge'} in ${formatTime(msg.secs)}`;
+    } else if (msg.t === 'full') {
+      rejected = true;
     } else if (msg.t === 'caught') {
       pad.classList.remove('flash');
       void pad.offsetWidth; // Animation neu starten
@@ -349,7 +405,9 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--sky); outli
   $('catch').addEventListener('click', () => send({ t: 'catch' }));
   $('land').addEventListener('click', () => send({ t: 'land' }));
   $('auto').addEventListener('click', () => send({ t: 'auto' }));
-  $('buzz').addEventListener('click', () => send({ t: 'buzz' }));
+  $('sound').addEventListener('click', () => send({ t: 'sound' }));
+  $('prey').addEventListener('click', () => send({ t: 'prey' }));
+  $('start-round').addEventListener('click', () => send({ t: 'start' }));
   $('smaller').addEventListener('click', () => send({ t: 'size', step: -1 }));
   $('bigger').addEventListener('click', () => send({ t: 'size', step: 1 }));
   $('connect-btn').addEventListener('click', connect);
