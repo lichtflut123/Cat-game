@@ -193,6 +193,12 @@ kbd {
 .options .wide { grid-column: 1 / -1; }
 .slots { margin: 0; font-size: 0.85rem; color: var(--muted); }
 
+/* ---------- Tonprüfung ---------- */
+.sound-check { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.meter { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.meter span { display: block; width: 0; height: 100%; background: var(--ok); transition: width 0.08s linear; }
+.secondary.small { align-self: flex-start; padding: 8px 16px; font-size: 0.9rem; }
+
 /* ---------- Statistik ---------- */
 .stats {
   grid-column: 1 / -1;
@@ -317,6 +323,11 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
       <p class="status" id="status" data-state="idle">Verbinde mit dem Kopplungsdienst …</p>
       <p class="slots" id="slots" hidden></p>
       <p class="note" id="note" hidden></p>
+      <div class="sound-check">
+        <p class="status" id="audio-status" data-state="warn">Ton noch aus: einmal auf die Seite klicken</p>
+        <div class="meter" aria-hidden="true"><span id="meter-bar"></span></div>
+        <button type="button" class="secondary small" id="test-sound">Ton testen</button>
+      </div>
     </aside>
 
     <section class="stats" aria-labelledby="stats-title">
@@ -471,19 +482,26 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
   // ---------- Ton ----------
   // Alle Geräusche werden live erzeugt: kostenlos, ohne Dateien und ohne Lizenzfragen.
   // So können Tonhöhe, Lautstärke und Stereo-Richtung jederzeit der Bewegung folgen.
-  let audio = null, master = null, noiseBuf = null;
+  let audio = null, master = null, noiseBuf = null, analyser = null;
+  let testUntil = 0;
   const voices = [];
   function initAudio() {
+    // Browser lassen Ton erst nach einem Klick oder Tastendruck auf genau dieser Seite zu
     if (audio) {
-      if (audio.state === 'suspended') audio.resume();
+      if (audio.state !== 'running') audio.resume().catch(() => {});
       return;
     }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* nur Safari */ }
     audio = new AC();
+    audio.onstatechange = sendState;
     master = audio.createGain();
     master.gain.value = 0.9;
-    master.connect(audio.destination);
+    analyser = audio.createAnalyser();
+    analyser.fftSize = 512;
+    master.connect(analyser);
+    analyser.connect(audio.destination);
     noiseBuf = audio.createBuffer(1, audio.sampleRate * 2, audio.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -549,7 +567,9 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
     const v = voiceFor(c.i);
     if (!v) return;
     const t = audio.currentTime;
-    const active = settings.sound && mode !== 'calibrate' && c.state === 'fly';
+    const testing = c.i === 0 && now() < testUntil;
+    if (testing) speedNorm = Math.max(speedNorm, 0.6);
+    const active = testing || (settings.sound && mode !== 'calibrate' && c.state === 'fly');
     const kind = settings.prey;
     const on = k => active && kind === k;
     v.wander += (Math.random() - 0.5) * 2 - v.wander * 0.02;
@@ -1277,6 +1297,7 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
         size: settings.size,
         catches: round ? round.catches : 0,
         timeLeft: timeLeft(),
+        audio: !!audio && audio.state === 'running',
       });
     }
   }
@@ -1422,6 +1443,33 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
     applyWarp();
   });
   document.getElementById('start').addEventListener('click', startPlay);
+  for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, initAudio, true);
+  document.getElementById('test-sound').addEventListener('click', () => {
+    initAudio();
+    testUntil = now() + 1.6;
+    if (settings.prey === 'laser' && audio) tone(1400, 2300, 1500, 0.3, 0.2, 0); // der Laser ist sonst still
+  });
+  const audioStatusEl = document.getElementById('audio-status');
+  const meterBar = document.getElementById('meter-bar');
+  const meterData = new Float32Array(512);
+  function updateSoundCheck() {
+    let state = 'ok', text = 'Ton läuft. Der Balken zeigt, was der Laptop gerade ausgibt.';
+    if (!audio) { state = 'warn'; text = 'Ton noch aus: einmal auf die Seite klicken'; }
+    else if (audio.state !== 'running') { state = 'warn'; text = 'Ton blockiert: einmal auf die Seite klicken'; }
+    else if (!settings.sound) { state = 'idle'; text = 'Ton ist in den Einstellungen aus'; }
+    if (audioStatusEl.textContent !== text) {
+      audioStatusEl.textContent = text;
+      audioStatusEl.dataset.state = state;
+    }
+    let level = 0;
+    if (analyser && audio.state === 'running') {
+      analyser.getFloatTimeDomainData(meterData);
+      let sum = 0;
+      for (const v of meterData) sum += v * v;
+      level = Math.min(100, Math.sqrt(sum / meterData.length) * 500);
+    }
+    meterBar.style.width = `${level.toFixed(0)}%`;
+  }
   document.getElementById('calibrate').addEventListener('click', startCalibration);
 
   function syncMenu() {
@@ -1470,6 +1518,7 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
       endingTimer -= dt;
       if (endingTimer <= 0 || critters.every(c => c.state === 'away')) showLobby();
     }
+    if (mode === 'lobby') updateSoundCheck();
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, W, H);

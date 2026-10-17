@@ -380,6 +380,8 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--sky); out
     }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
+    // iPad/iPhone: Ton auch bei eingeschaltetem Stummschalter abspielen (ab iOS 17)
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* nur Safari */ }
     audio = new AC();
     master = audio.createGain();
     master.gain.value = 0.8;
