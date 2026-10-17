@@ -181,7 +181,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .last-title { grid-column: 1 / -1; margin: 0; }
 .last div { display: flex; flex-direction: column; min-width: 0; }
 .last dt { font-size: 0.72rem; color: var(--muted); }
-.last dd { margin: 0; font-family: var(--display); font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.last dd { margin: 0; font-weight: 700; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
 @media (max-width: 380px) { .last { grid-template-columns: repeat(2, 1fr); } }
 
 details.tips { border-top: 1px solid var(--line); padding-top: 14px; }
@@ -196,7 +196,7 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--sky); out
   position: fixed;
   top: calc(12px + env(safe-area-inset-top, 0px));
   left: calc(14px + env(safe-area-inset-left, 0px));
-  font-family: var(--display);
+  font-weight: 700;
   font-size: 1.1rem;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
