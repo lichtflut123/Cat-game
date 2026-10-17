@@ -28,3 +28,40 @@ Es gibt keine Abhängigkeiten und keinen Build-Schritt. Über GitHub Pages läss
 - Auf dem iPad „Geführter Zugriff“ (Bedienungshilfen), auf Android „App anheften“ aktivieren, damit die Katze in der App bleibt.
 - Eine Displayschutzfolie schützt vor Krallen.
 - Kurze Runden spielen und danach ein echtes Spielzeug oder Leckerli geben, damit die Jagd mit einem echten Fang endet.
+
+---
+
+# Brummer (Projektor-Spiel)
+
+Ein Projektor wirft eine leuchtende Fliege auf den Boden. Du steuerst sie mit dem Handy, die Katze jagt sie.
+
+- `brummer/index.html` läuft auf dem **Laptop am Projektor** und zeigt die Fliege auf Schwarz (Schwarz = kein Licht)
+- `brummer/handy.html` ist die **Fernbedienung** auf dem Handy
+
+## So geht's
+
+1. `brummer/` auf dem Laptop öffnen. Es erscheinen ein QR-Code und ein 6-stelliger Code.
+2. QR-Code mit dem Handy scannen (oder `handy.html` öffnen und den Code eintippen).
+3. **Ecken anpassen**: die vier gelben Griffe ziehen, bis das Raster auf dem Boden rechtwinklig und der Kreis rund aussieht. Damit wird das Trapez eines schräg stehenden Projektors ausgeglichen. Die Einstellung wird gespeichert.
+4. **Start**: Der Laptop geht in den Vollbildmodus.
+
+## Steuerung
+
+| Handy | Laptop | Wirkung |
+|---|---|---|
+| Wischen auf der Fläche | Maus/Touchpad bewegen | Fliege steuern (relativ, wie ein Touchpad) |
+| Gefangen! | Leertaste | Fang zählen, Funkenregen, Fliege kommt woanders wieder |
+| Landen / Abheben | L | Fliege setzt sich hin oder fliegt los |
+| Autopilot | A | Fliegt selbst, sobald 2,5 s niemand steuert |
+| Summen | – | Summton an/aus (Laptop-Lautsprecher, Stereo nach Position) |
+| Größe − / + | – | S, M, L, XL |
+| – | Esc | Zurück ins Menü |
+
+## Verbindung und Hosting
+
+Handy und Laptop verbinden sich direkt per WebRTC ([PeerJS](https://peerjs.com/)). Der öffentliche PeerJS-Dienst wird nur fürs Kennenlernen gebraucht, also brauchen beide Geräte Internet.
+
+Das Handy muss `handy.html` über eine echte Adresse laden können. Eine lokal geöffnete Datei (`file://`) reicht dafür nicht:
+
+- **GitHub Pages** (empfohlen): Repo-Einstellungen → Pages → Branch auswählen. Bei privaten Repos braucht das einen kostenpflichtigen GitHub-Plan, sonst muss das Repo öffentlich sein.
+- **Lokal im WLAN**: Auf dem Laptop `python3 -m http.server 8000` im Projektordner starten und die Seite über `http://<IP-des-Laptops>:8000/brummer/` öffnen, nicht über `localhost`. Dann zeigt der QR-Code eine Adresse, die das Handy erreicht.

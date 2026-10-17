@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Brummer Fernbedienung</title>
+<meta name="theme-color" content="#0d1321">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Sniglet:wght@400;800&display=swap">
+<style>
+/* Layout: Statusleiste oben, große Wischfläche in der Mitte, Daumentasten unten. */
+:root {
+  --night: #0d1321;
+  --pad: #111a2c;
+  --line: rgba(160, 185, 230, 0.18);
+  --ink: #eef2fa;
+  --muted: #9ba8c2;
+  --amber: #ffc84a;
+  --amber-ink: #241a03;
+  --sky: #6cb2ff;
+  --ok: #5fd68a;
+  --warn: #ff8a6a;
+  --display: "Sniglet", "Arial Rounded MT Bold", ui-rounded, system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--night);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.45;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.app {
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-block: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.bar { display: flex; align-items: center; gap: 10px; font-size: 0.92rem; }
+.bar .name { font-family: var(--display); font-weight: 800; font-size: 1.2rem; color: var(--amber); }
+.status { display: flex; align-items: center; gap: 6px; color: var(--muted); min-width: 0; }
+.status::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+.status[data-state="ok"]::before { background: var(--ok); }
+.status[data-state="warn"]::before { background: var(--warn); }
+.catches { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.catches strong { font-family: var(--display); font-size: 1.2rem; }
+
+/* ---------- Verbinden ---------- */
+#connect { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 16px; max-width: 26rem; width: 100%; margin-inline: auto; }
+#connect h1 { margin: 0; font-family: var(--display); font-weight: 800; font-size: 2.4rem; line-height: 1.05; color: var(--amber); }
+#connect p { margin: 0; color: var(--muted); }
+#code {
+  font: inherit;
+  font-family: var(--display);
+  font-size: 2rem;
+  letter-spacing: 0.2em;
+  text-align: center;
+  text-transform: uppercase;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1.5px solid var(--line);
+  background: var(--pad);
+  color: var(--ink);
+  width: 100%;
+  box-sizing: border-box;
+  -webkit-user-select: text;
+  user-select: text;
+}
+#error { color: var(--warn) !important; }
+button { font: inherit; color: inherit; cursor: pointer; }
+.primary {
+  border: 0;
+  border-radius: 999px;
+  padding: 14px 24px;
+  background: var(--amber);
+  color: var(--amber-ink);
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 1.3rem;
+}
+
+/* ---------- Fernbedienung ---------- */
+#remote { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+#pad {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border-radius: 22px;
+  border: 1.5px solid var(--line);
+  background-color: var(--pad);
+  background-image: radial-gradient(rgba(160, 185, 230, 0.16) 1.5px, transparent 1.6px);
+  background-size: 26px 26px;
+  touch-action: none;
+  overflow: hidden;
+}
+#pad p {
+  position: absolute;
+  inset: auto 0 16px;
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+#finger {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  margin: -32px 0 0 -32px;
+  border-radius: 50%;
+  border: 2px solid var(--sky);
+  background: rgba(108, 178, 255, 0.15);
+  pointer-events: none;
+}
+.controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.toggle {
+  padding: 12px 6px;
+  border-radius: 14px;
+  border: 1.5px solid var(--line);
+  background: transparent;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.toggle[aria-pressed="true"] { background: var(--sky); border-color: var(--sky); color: #06152b; }
+.size { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; }
+.size .label { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-right: auto; }
+.size button { width: 52px; height: 44px; border-radius: 12px; border: 1.5px solid var(--line); background: transparent; font-size: 1.4rem; font-weight: 700; }
+.size output { min-width: 2.5ch; text-align: center; font-family: var(--display); font-size: 1.3rem; }
+.catch {
+  grid-column: 1 / -1;
+  border: 0;
+  border-radius: 18px;
+  padding: 18px;
+  background: var(--amber);
+  color: var(--amber-ink);
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 1.7rem;
+}
+.catch:active, .toggle:active, .size button:active { transform: scale(0.97); }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <span class="name">Brummer</span>
+    <span class="status" id="status" data-state="idle">Nicht verbunden</span>
+    <span class="catches" id="catches-wrap" hidden>Fänge <strong id="catches">0</strong></span>
+  </header>
+
+  <section id="connect">
+    <h1>Fernbedienung</h1>
+    <p>Gib den Code ein, der auf der Projektion unter dem QR-Code steht. Handy und Laptop müssen im Internet sein.</p>
+    <input id="code" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="6" placeholder="K7MX2P" aria-label="Code von der Projektion">
+    <button type="button" id="connect-btn" class="primary">Verbinden</button>
+    <p id="error" hidden></p>
+  </section>
+
+  <section id="remote" hidden>
+    <div id="pad" aria-label="Wischfläche zum Steuern der Fliege">
+      <div id="finger" hidden></div>
+      <p>Hier wischen, um die Fliege zu steuern</p>
+    </div>
+    <div class="controls">
+      <button type="button" class="toggle" id="land" aria-pressed="false">Landen</button>
+      <button type="button" class="toggle" id="auto" aria-pressed="true">Autopilot</button>
+      <button type="button" class="toggle" id="buzz" aria-pressed="true">Summen</button>
+      <div class="size">
+        <span class="label">Größe</span>
+        <button type="button" id="smaller" aria-label="Fliege kleiner">−</button>
+        <output id="size">M</output>
+        <button type="button" id="bigger" aria-label="Fliege größer">+</button>
+      </div>
+      <button type="button" class="catch" id="catch">Gefangen!</button>
+    </div>
+  </section>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  const PEER_PREFIX = 'pfotenjagd-brummer-';
+  const $ = id => document.getElementById(id);
+  const statusEl = $('status');
+  const codeInput = $('code');
+  const errorEl = $('error');
+  const pad = $('pad');
+  const finger = $('finger');
+
+  let peer = null, conn = null;
+  let pendingDx = 0, pendingDy = 0;
+
+  function setStatus(text, state) {
+    statusEl.textContent = text;
+    statusEl.dataset.state = state;
+  }
+  function showError(text) {
+    errorEl.hidden = !text;
+    errorEl.textContent = text || '';
+  }
+  function showRemote(on) {
+    $('connect').hidden = on;
+    $('remote').hidden = !on;
+    $('catches-wrap').hidden = !on;
+  }
+  function cleanCode(v) {
+    return (v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  }
+
+  function connect() {
+    const code = cleanCode(codeInput.value);
+    if (code.length !== 6) {
+      showError('Der Code hat 6 Zeichen.');
+      return;
+    }
+    if (!window.Peer) {
+      showError('Die Verbindungsbibliothek konnte nicht geladen werden. Internet prüfen und Seite neu laden.');
+      return;
+    }
+    showError('');
+    setStatus('Verbinde …', 'idle');
+    $('connect-btn').disabled = true;
+    if (peer) peer.destroy();
+    peer = new window.Peer({ debug: 0 });
+    peer.on('open', () => {
+      const c = peer.connect(PEER_PREFIX + code.toLowerCase(), { reliable: true });
+      conn = c;
+      c.on('open', () => {
+        try { localStorage.setItem('brummer.lastCode', code); } catch { /* egal */ }
+        setStatus('Verbunden', 'ok');
+        showRemote(true);
+        $('connect-btn').disabled = false;
+        requestWakeLock();
+      });
+      c.on('data', onMessage);
+      c.on('close', () => {
+        if (conn !== c) return;
+        conn = null;
+        setStatus('Verbindung verloren', 'warn');
+        showRemote(false);
+        showError('Die Verbindung zum Projektor ist abgebrochen. Tippe auf „Verbinden“, um es erneut zu versuchen.');
+      });
+    });
+    peer.on('error', e => {
+      $('connect-btn').disabled = false;
+      setStatus('Nicht verbunden', 'warn');
+      showRemote(false);
+      if (e.type === 'peer-unavailable') showError('Kein Projektor mit diesem Code gefunden. Läuft die Brummer-Seite auf dem Laptop, und stimmt der Code?');
+      else showError('Verbindung fehlgeschlagen. Ist das Handy im Internet?');
+    });
+  }
+
+  function send(msg) {
+    if (conn && conn.open) {
+      try { conn.send(msg); } catch { /* Verbindung gerade weg */ }
+    }
+  }
+  function onMessage(msg) {
+    if (!msg || typeof msg !== 'object') return;
+    if (msg.t === 'state') {
+      $('catches').textContent = msg.catches;
+      $('land').setAttribute('aria-pressed', String(!!msg.landed));
+      $('land').textContent = msg.landed ? 'Abheben' : 'Landen';
+      $('auto').setAttribute('aria-pressed', String(!!msg.auto));
+      $('buzz').setAttribute('aria-pressed', String(!!msg.buzz));
+      $('size').textContent = msg.size;
+    } else if (msg.t === 'caught') {
+      if (navigator.vibrate) try { navigator.vibrate([40, 40, 80]); } catch { /* egal */ }
+    }
+  }
+
+  // Wischfläche: relative Bewegung wie bei einem Touchpad, normiert auf die Breite der Fläche
+  let activeId = null, lastX = 0, lastY = 0;
+  pad.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    activeId = e.pointerId;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    try { pad.setPointerCapture(e.pointerId); } catch { /* egal */ }
+    moveFinger(e);
+    finger.hidden = false;
+  });
+  pad.addEventListener('pointermove', e => {
+    if (e.pointerId !== activeId) return;
+    const w = pad.clientWidth || 1;
+    pendingDx += (e.clientX - lastX) / w;
+    pendingDy += (e.clientY - lastY) / w;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    moveFinger(e);
+  });
+  function endTouch(e) {
+    if (e.pointerId !== activeId) return;
+    activeId = null;
+    finger.hidden = true;
+  }
+  pad.addEventListener('pointerup', endTouch);
+  pad.addEventListener('pointercancel', endTouch);
+  function moveFinger(e) {
+    const r = pad.getBoundingClientRect();
+    finger.style.left = `${e.clientX - r.left}px`;
+    finger.style.top = `${e.clientY - r.top}px`;
+  }
+  function flush() {
+    if (pendingDx || pendingDy) {
+      send({ t: 'move', dx: pendingDx, dy: pendingDy });
+      pendingDx = pendingDy = 0;
+    }
+    requestAnimationFrame(flush);
+  }
+
+  $('catch').addEventListener('click', () => send({ t: 'catch' }));
+  $('land').addEventListener('click', () => send({ t: 'land' }));
+  $('auto').addEventListener('click', () => send({ t: 'auto' }));
+  $('buzz').addEventListener('click', () => send({ t: 'buzz' }));
+  $('smaller').addEventListener('click', () => send({ t: 'size', step: -1 }));
+  $('bigger').addEventListener('click', () => send({ t: 'size', step: 1 }));
+  $('connect-btn').addEventListener('click', connect);
+  codeInput.addEventListener('input', () => { codeInput.value = cleanCode(codeInput.value); });
+  codeInput.addEventListener('keydown', e => { if (e.key === 'Enter') connect(); });
+  document.addEventListener('touchmove', e => { if (e.target.closest('#pad')) e.preventDefault(); }, { passive: false });
+
+  let wakeLock = null;
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator && !wakeLock) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      }
+    } catch { wakeLock = null; }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && conn) requestWakeLock();
+  });
+
+  const fromUrl = cleanCode(new URLSearchParams(location.search).get('code'));
+  let stored = '';
+  try { stored = cleanCode(localStorage.getItem('brummer.lastCode')); } catch { /* egal */ }
+  codeInput.value = fromUrl || stored;
+  requestAnimationFrame(flush);
+  if (fromUrl.length === 6) connect();
+})();
+</script>
+</body>
+</html>

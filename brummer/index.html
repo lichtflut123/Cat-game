@@ -1,0 +1,990 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Brummer</title>
+<meta name="theme-color" content="#000000">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Sniglet:wght@400;800&display=swap">
+<style>
+/* Layout: schwarze Projektionsfläche (Schwarz = kein Licht), Menü als Panel in der Mitte, Kalibrierung mit vier Eckgriffen. */
+:root {
+  --black: #000000;
+  --panel: rgba(14, 20, 34, 0.92);
+  --line: rgba(160, 185, 230, 0.18);
+  --ink: #eef2fa;
+  --muted: #9ba8c2;
+  --amber: #ffc84a;
+  --amber-ink: #241a03;
+  --sky: #6cb2ff;
+  --ok: #5fd68a;
+  --warn: #ff8a6a;
+  --display: "Sniglet", "Arial Rounded MT Bold", ui-rounded, system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--black);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+body.playing { cursor: none; }
+#floor {
+  position: fixed;
+  left: 0;
+  top: 0;
+  display: block;
+  transform-origin: 0 0;
+}
+
+/* ---------- Menü ---------- */
+#lobby {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  padding-block: 24px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.panel {
+  width: 100%;
+  max-width: 56rem;
+  box-sizing: border-box;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  padding: 30px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 17rem;
+  gap: 30px;
+}
+@media (max-width: 760px) { .panel { grid-template-columns: 1fr; } }
+.main { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.eyebrow {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sky);
+}
+h1 {
+  margin: 4px 0 0;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(2.6rem, 6vw, 3.6rem);
+  line-height: 1;
+  color: var(--amber);
+}
+.lede { margin: 6px 0 0; color: var(--muted); max-width: 46ch; }
+.steps { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 4px; max-width: 60ch; }
+.steps li::marker { color: var(--amber); font-weight: 700; }
+.options { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 480px) { .options { grid-template-columns: 1fr; } }
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+.seg { display: flex; border: 1.5px solid var(--line); border-radius: 12px; overflow: hidden; }
+.seg button { flex: 1 1 0; min-width: 0; padding: 7px 4px; border: 0; background: transparent; font-size: 0.88rem; white-space: nowrap; }
+.seg button + button { border-left: 1.5px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--sky); color: #06152b; font-weight: 700; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.start {
+  border: 0;
+  border-radius: 999px;
+  padding: 14px 30px;
+  background: var(--amber);
+  color: var(--amber-ink);
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 1.35rem;
+}
+.secondary {
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  padding: 12px 22px;
+  background: transparent;
+  font-weight: 700;
+}
+.keys { margin: 0; font-size: 0.84rem; color: var(--muted); }
+kbd {
+  font-family: var(--body);
+  font-size: 0.78rem;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  color: var(--ink);
+}
+
+.pair { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.qr {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 12px;
+  aspect-ratio: 1;
+  max-width: 100%;
+  display: grid;
+  place-items: center;
+}
+.qr canvas { width: 100%; height: auto; image-rendering: pixelated; }
+.code {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 1.9rem;
+  letter-spacing: 0.12em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.status { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+.status::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+.status[data-state="ok"]::before { background: var(--ok); }
+.status[data-state="warn"]::before { background: var(--warn); }
+.note { margin: 0; font-size: 0.82rem; color: var(--warn); }
+.tally { margin: 0; font-size: 0.9rem; color: var(--muted); }
+.tally strong { font-family: var(--display); font-size: 1.3rem; color: var(--ink); }
+
+/* ---------- Kalibrierung ---------- */
+.handle {
+  position: fixed;
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  border-radius: 50%;
+  border: 3px solid var(--amber);
+  background: rgba(255, 200, 74, 0.25);
+  touch-action: none;
+  cursor: grab;
+  z-index: 5;
+}
+.handle:active { cursor: grabbing; }
+#calhelp {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(26rem, calc(100% - 32px));
+  box-sizing: border-box;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 4;
+}
+#calhelp p { margin: 0; color: var(--muted); }
+#calhelp strong { color: var(--ink); }
+
+button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<canvas id="floor"></canvas>
+
+<main id="lobby">
+  <section class="panel" aria-labelledby="title">
+    <div class="main">
+      <header>
+        <p class="eyebrow">Pfotenjagd · Projektor</p>
+        <h1 id="title">Brummer</h1>
+        <p class="lede">Eine Fliege summt über den Boden. Du steuerst sie mit dem Handy, deine Katze versucht sie zu fangen.</p>
+      </header>
+      <ol class="steps">
+        <li>Handy ins selbe WLAN, QR-Code scannen.</li>
+        <li><strong>Ecken anpassen</strong>, bis das Raster auf dem Boden rechtwinklig aussieht.</li>
+        <li><strong>Start</strong> drücken. Der Laptop geht in den Vollbildmodus.</li>
+      </ol>
+      <div class="options">
+        <div class="field">
+          <span class="label">Größe der Fliege</span>
+          <div class="seg" data-key="size">
+            <button type="button" id="size-S" data-v="S">S</button>
+            <button type="button" id="size-M" data-v="M">M</button>
+            <button type="button" id="size-L" data-v="L">L</button>
+            <button type="button" id="size-XL" data-v="XL">XL</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Tempo</span>
+          <div class="seg" data-key="speed">
+            <button type="button" id="speed-slow" data-v="0.7">Gemütlich</button>
+            <button type="button" id="speed-normal" data-v="1">Normal</button>
+            <button type="button" id="speed-fast" data-v="1.4">Flink</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Summen</span>
+          <div class="seg" data-key="buzz">
+            <button type="button" id="buzz-off" data-v="false">Aus</button>
+            <button type="button" id="buzz-on" data-v="true">An</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Autopilot, wenn niemand steuert</span>
+          <div class="seg" data-key="auto">
+            <button type="button" id="auto-off" data-v="false">Aus</button>
+            <button type="button" id="auto-on" data-v="true">An</button>
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="button" id="start" class="start">Start</button>
+        <button type="button" id="calibrate" class="secondary">Ecken anpassen</button>
+      </div>
+      <p class="keys">Am Laptop: Maus bewegen = steuern · <kbd>Leertaste</kbd> Gefangen · <kbd>L</kbd> Landen · <kbd>A</kbd> Autopilot · <kbd>Esc</kbd> Menü</p>
+    </div>
+
+    <aside class="pair" aria-label="Handy koppeln">
+      <span class="label">Handy als Fernbedienung</span>
+      <div class="qr"><canvas id="qr" width="1" height="1" aria-label="QR-Code zur Fernbedienung"></canvas></div>
+      <p class="code" id="code">······</p>
+      <p class="status" id="status" data-state="idle">Verbinde mit dem Kopplungsdienst …</p>
+      <p class="note" id="note" hidden></p>
+      <p class="tally">Fänge in dieser Sitzung: <strong id="tally">0</strong></p>
+    </aside>
+  </section>
+</main>
+
+<div id="handles" hidden>
+  <div class="handle" data-i="0" aria-label="Ecke oben links"></div>
+  <div class="handle" data-i="1" aria-label="Ecke oben rechts"></div>
+  <div class="handle" data-i="2" aria-label="Ecke unten rechts"></div>
+  <div class="handle" data-i="3" aria-label="Ecke unten links"></div>
+</div>
+<div id="calhelp" hidden>
+  <p><strong>Ecken anpassen:</strong> Ziehe die vier gelben Griffe mit der Maus, bis das Raster auf dem Boden rechtwinklig ist und der Kreis rund aussieht. Du kannst die Fläche damit auch verkleinern, zum Beispiel weg von Möbeln.</p>
+  <div class="actions">
+    <button type="button" id="caldone" class="start">Fertig</button>
+    <button type="button" id="calreset" class="secondary">Zurücksetzen</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  const canvas = document.getElementById('floor');
+  const ctx = canvas.getContext('2d');
+  const lobby = document.getElementById('lobby');
+  const handlesBox = document.getElementById('handles');
+  const calHelp = document.getElementById('calhelp');
+  const statusEl = document.getElementById('status');
+  const noteEl = document.getElementById('note');
+
+  const TAU = Math.PI * 2;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  const PEER_PREFIX = 'pfotenjagd-brummer-';
+  const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const SIZES = { S: 0.02, M: 0.03, L: 0.045, XL: 0.065 };
+  const SIZE_ORDER = ['S', 'M', 'L', 'XL'];
+  const INPUT_GAIN = 1.3;      // eine Wischbewegung über die ganze Handybreite = 1,3 × Projektionsbreite
+  const HUMAN_HOLD = 2.5;      // so lange nach der letzten Eingabe übernimmt der Autopilot nicht
+
+  function readStore(key) {
+    try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
+  }
+  function writeStore(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Speicher nicht verfügbar */ }
+  }
+
+  const settings = Object.assign({ size: 'M', speed: 1, buzz: true, auto: true }, readStore('brummer.settings'));
+  if (!SIZES[settings.size]) settings.size = 'M';
+  const DEFAULT_CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]];
+  let corners = readStore('brummer.corners');
+  if (!Array.isArray(corners) || corners.length !== 4) corners = DEFAULT_CORNERS.map(p => p.slice());
+
+  let W = 0, H = 0, M = 0, DPR = 1;
+  let mode = 'lobby';
+  let catches = 0;
+
+  // ---------- Entzerrung (Homografie für den schrägen Projektor) ----------
+  function solve(A, b) {
+    const n = b.length;
+    for (let i = 0; i < n; i++) {
+      let p = i;
+      for (let r = i + 1; r < n; r++) if (Math.abs(A[r][i]) > Math.abs(A[p][i])) p = r;
+      [A[i], A[p]] = [A[p], A[i]];
+      [b[i], b[p]] = [b[p], b[i]];
+      for (let r = i + 1; r < n; r++) {
+        const f = A[r][i] / A[i][i];
+        for (let c = i; c < n; c++) A[r][c] -= f * A[i][c];
+        b[r] -= f * b[i];
+      }
+    }
+    const x = new Array(n);
+    for (let i = n - 1; i >= 0; i--) {
+      let s = b[i];
+      for (let c = i + 1; c < n; c++) s -= A[i][c] * x[c];
+      x[i] = s / A[i][i];
+    }
+    return x;
+  }
+  function homography(src, dst) {
+    const A = [], b = [];
+    for (let i = 0; i < 4; i++) {
+      const [x, y] = src[i], [u, v] = dst[i];
+      A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); b.push(u);
+      A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); b.push(v);
+    }
+    return [...solve(A, b), 1];
+  }
+  function applyWarp() {
+    const src = [[0, 0], [W, 0], [W, H], [0, H]];
+    const dst = corners.map(([fx, fy]) => [fx * W, fy * H]);
+    const h = homography(src, dst);
+    if (h.some(v => !Number.isFinite(v))) return;
+    canvas.style.transform = `matrix3d(${h[0]},${h[3]},0,${h[6]},${h[1]},${h[4]},0,${h[7]},0,0,1,0,${h[2]},${h[5]},0,${h[8]})`;
+    for (const el of handlesBox.children) {
+      const [fx, fy] = corners[el.dataset.i];
+      el.style.left = `${fx * window.innerWidth}px`;
+      el.style.top = `${fy * window.innerHeight}px`;
+    }
+  }
+
+  // ---------- Ton ----------
+  let audio = null, master = null, noiseBuf = null, buzz = null;
+  function initAudio() {
+    if (audio) {
+      if (audio.state === 'suspended') audio.resume();
+      return;
+    }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audio = new AC();
+    master = audio.createGain();
+    master.gain.value = 0.9;
+    master.connect(audio.destination);
+    noiseBuf = audio.createBuffer(1, audio.sampleRate, audio.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+
+    // Dauersummen: zwei leicht verstimmte Sägezähne, gefiltert; Lautstärke folgt der Fluggeschwindigkeit
+    const o1 = audio.createOscillator(), o2 = audio.createOscillator();
+    o1.type = o2.type = 'sawtooth';
+    const lp = audio.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 1500;
+    lp.Q.value = 2;
+    const gain = audio.createGain();
+    gain.gain.value = 0;
+    const pan = audio.createStereoPanner ? audio.createStereoPanner() : null;
+    o1.connect(lp); o2.connect(lp);
+    lp.connect(gain);
+    if (pan) { gain.connect(pan); pan.connect(master); } else gain.connect(master);
+    o1.start(); o2.start();
+    buzz = { o1, o2, lp, gain, pan };
+  }
+  function updateBuzz(speedNorm, on) {
+    if (!buzz) return;
+    const t = audio.currentTime;
+    const f = 175 + speedNorm * 90 + Math.sin(t * 5.3) * 6;
+    buzz.o1.frequency.setTargetAtTime(f, t, 0.05);
+    buzz.o2.frequency.setTargetAtTime(f * 1.03, t, 0.05);
+    buzz.lp.frequency.setTargetAtTime(900 + speedNorm * 1600, t, 0.05);
+    buzz.gain.gain.setTargetAtTime(on ? 0.03 + speedNorm * 0.07 : 0, t, on ? 0.04 : 0.08);
+    if (buzz.pan) buzz.pan.pan.setTargetAtTime(clamp((fly.x / W) * 2 - 1, -1, 1), t, 0.05);
+  }
+  function catchSound() {
+    if (!audio) return;
+    const t = audio.currentTime;
+    const src = audio.createBufferSource();
+    src.buffer = noiseBuf;
+    const f = audio.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 900;
+    const g = audio.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.5, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+    src.connect(f).connect(g).connect(master);
+    src.start(t);
+    src.stop(t + 0.3);
+    const o = audio.createOscillator();
+    const og = audio.createGain();
+    o.frequency.setValueAtTime(900, t);
+    o.frequency.exponentialRampToValueAtTime(1800, t + 0.12);
+    og.gain.setValueAtTime(0.0001, t);
+    og.gain.exponentialRampToValueAtTime(0.15, t + 0.02);
+    og.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+    o.connect(og).connect(master);
+    o.start(t);
+    o.stop(t + 0.25);
+  }
+
+  // ---------- Die Fliege ----------
+  const fly = {
+    x: -999, y: -999, vx: 0, vy: 0, angle: 0, tx: 0, ty: 0,
+    state: 'away', timer: 0.6, aiTimer: 0, jinkTimer: 0.5, lastInput: -99, liftAcc: 0, seed: Math.random() * 10,
+  };
+  const flyR = () => SIZES[settings.size] * M;
+  const now = () => performance.now() / 1000;
+  const humanControl = () => now() - fly.lastInput < HUMAN_HOLD;
+
+  function flyInFromEdge() {
+    const pad = flyR() * 3;
+    const e = Math.floor(Math.random() * 4);
+    fly.x = e === 1 ? W + pad : e === 3 ? -pad : rand(0, W);
+    fly.y = e === 0 ? -pad : e === 2 ? H + pad : rand(0, H);
+    fly.vx = fly.vy = 0;
+    fly.tx = rand(W * 0.2, W * 0.8);
+    fly.ty = rand(H * 0.2, H * 0.8);
+    fly.state = 'fly';
+    fly.aiTimer = rand(1, 2);
+  }
+  function takeOff() {
+    fly.state = 'fly';
+    const a = rand(0, TAU);
+    fly.vx = Math.cos(a) * M * 0.4;
+    fly.vy = Math.sin(a) * M * 0.4;
+    fly.aiTimer = 0;
+  }
+  function toggleLand(byHuman) {
+    if (fly.state === 'fly') {
+      fly.state = 'landed';
+      fly.liftAcc = 0;
+      // vom Menschen gelandet: bleibt sitzen, bis jemand sie aufscheucht (der Autopilot wartet 12 s)
+      fly.timer = byHuman ? 12 : rand(1.5, 4.5);
+      if (byHuman) fly.lastInput = now();
+      fly.tx = fly.x;
+      fly.ty = fly.y;
+    } else if (fly.state === 'landed') {
+      takeOff();
+      fly.lastInput = now();
+    }
+    sendState();
+  }
+  function steer(px, py) {
+    if (fly.state === 'away' || fly.state === 'caught') return;
+    fly.lastInput = now();
+    if (fly.state === 'landed') {
+      // kleines Zittern von Maus oder Finger scheucht sie noch nicht auf
+      fly.liftAcc += Math.hypot(px, py);
+      if (fly.liftAcc < flyR() * 1.5) return;
+      takeOff();
+    }
+    const m = -flyR() * 1.2; // ein kleines Stück über den Rand hinaus erlaubt: die Fliege kann kurz verschwinden
+    fly.tx = clamp(fly.tx + px, m, W - m);
+    fly.ty = clamp(fly.ty + py, m, H - m);
+    fly.lastInput = now();
+  }
+  function catchFly() {
+    if (fly.state !== 'fly' && fly.state !== 'landed') return;
+    fly.state = 'caught';
+    fly.timer = 0.6;
+    catches++;
+    document.getElementById('tally').textContent = catches;
+    burst(fly.x, fly.y);
+    catchSound();
+    send({ t: 'caught' });
+    sendState();
+  }
+  function aiDecide() {
+    const m = flyR() * 2;
+    const roll = Math.random();
+    if (roll < 0.22) {
+      toggleLand(false);
+    } else if (roll < 0.3) {
+      // zum nächsten Rand hinausfliegen
+      const pad = flyR() * 5;
+      const d = [fly.y, W - fly.x, H - fly.y, fly.x];
+      const e = d.indexOf(Math.min(...d));
+      fly.tx = e === 1 ? W + pad : e === 3 ? -pad : fly.x;
+      fly.ty = e === 0 ? -pad : e === 2 ? H + pad : fly.y;
+      fly.aiTimer = 4;
+    } else {
+      const dist = M * rand(0.15, 0.55), a = rand(0, TAU);
+      fly.tx = clamp(fly.x + Math.cos(a) * dist, m, W - m);
+      fly.ty = clamp(fly.y + Math.sin(a) * dist, m, H - m);
+      fly.aiTimer = rand(0.6, 2);
+    }
+  }
+
+  function updateFly(dt, t) {
+    const r = flyR();
+    const auto = settings.auto && !humanControl();
+    switch (fly.state) {
+      case 'away':
+        fly.timer -= dt;
+        if (fly.timer <= 0) flyInFromEdge();
+        break;
+      case 'caught':
+        fly.timer -= dt;
+        if (fly.timer <= 0) {
+          fly.state = 'away';
+          fly.timer = rand(1.2, 2.5);
+        }
+        break;
+      case 'landed': {
+        const k = Math.exp(-18 * dt);
+        fly.vx *= k; fly.vy *= k;
+        fly.x += fly.vx * dt; fly.y += fly.vy * dt;
+        if (Math.random() < dt * 0.7) fly.angle += rand(-0.6, 0.6); // putzt sich, dreht sich ein wenig
+        if (auto) {
+          fly.timer -= dt;
+          if (fly.timer <= 0) { takeOff(); sendState(); }
+        }
+        break;
+      }
+      case 'fly': {
+        if (auto) {
+          fly.aiTimer -= dt;
+          if (fly.aiTimer <= 0) aiDecide();
+          if (fly.state !== 'fly') break;
+        }
+        const sp = settings.speed;
+        const wob = r * (humanControl() ? 0.7 : 1);
+        const wx = Math.sin(t * 7.3 + fly.seed) * wob + Math.sin(t * 12.7) * wob * 0.4;
+        const wy = Math.cos(t * 6.1 + fly.seed) * wob + Math.sin(t * 15.3 + 1) * wob * 0.4;
+        fly.jinkTimer -= dt;
+        if (fly.jinkTimer <= 0) {
+          // Fliegen schlagen ständig kleine Haken
+          const a = rand(0, TAU), j = M * rand(0.2, 0.55) * sp;
+          fly.vx += Math.cos(a) * j;
+          fly.vy += Math.sin(a) * j;
+          fly.jinkTimer = rand(0.25, 1.1) / sp;
+        }
+        const k = 36 * sp, damp = 9 * Math.sqrt(sp);
+        fly.vx += ((fly.tx + wx - fly.x) * k - fly.vx * damp) * dt;
+        fly.vy += ((fly.ty + wy - fly.y) * k - fly.vy * damp) * dt;
+        const v = Math.hypot(fly.vx, fly.vy), vmax = M * 2.2 * sp;
+        if (v > vmax) { fly.vx *= vmax / v; fly.vy *= vmax / v; }
+        fly.x += fly.vx * dt;
+        fly.y += fly.vy * dt;
+        if (v > r * 2) {
+          let diff = Math.atan2(fly.vy, fly.vx) - fly.angle;
+          diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+          fly.angle += diff * Math.min(1, dt * 12);
+        }
+        const out = fly.x < -r * 4 || fly.x > W + r * 4 || fly.y < -r * 4 || fly.y > H + r * 4;
+        if (out && auto) {
+          fly.state = 'away';
+          fly.timer = rand(1.5, 3.5);
+        }
+        break;
+      }
+    }
+    const speedNorm = fly.state === 'fly' ? clamp(Math.hypot(fly.vx, fly.vy) / (M * 1.5), 0, 1) : 0;
+    updateBuzz(speedNorm, settings.buzz && fly.state === 'fly' && mode !== 'calibrate');
+  }
+
+  function ellipse(c, x, y, rx, ry, rot = 0) {
+    c.beginPath();
+    c.ellipse(x, y, rx, ry, rot, 0, TAU);
+  }
+  function drawWing(c, R, side, spread, alpha) {
+    c.save();
+    c.translate(R * 0.1, side * R * 0.16);
+    c.rotate(Math.PI - side * spread);
+    c.globalAlpha *= alpha;
+    c.fillStyle = 'rgba(190,222,255,0.55)';
+    c.strokeStyle = 'rgba(235,245,255,0.8)';
+    c.lineWidth = Math.max(1, R * 0.03);
+    ellipse(c, R * 0.55, 0, R * 0.62, R * 0.24);
+    c.fill();
+    c.stroke();
+    c.restore();
+  }
+  function drawFly(c, t) {
+    if (fly.state === 'away') return;
+    const R = flyR();
+    let s = 1, a = 1;
+    if (fly.state === 'caught') {
+      const p = 1 - fly.timer / 0.6;
+      s = 1 + p * 0.8;
+      a = 1 - p;
+    }
+    const flying = fly.state === 'fly';
+    c.save();
+    c.globalAlpha = a;
+    c.translate(fly.x, fly.y);
+    const glow = c.createRadialGradient(0, 0, 0, 0, 0, R * 2.4);
+    glow.addColorStop(0, 'rgba(200,225,255,0.2)');
+    glow.addColorStop(1, 'rgba(200,225,255,0)');
+    c.fillStyle = glow;
+    ellipse(c, 0, 0, R * 2.4, R * 2.4); c.fill();
+    c.rotate(fly.angle);
+    c.scale(s, s);
+
+    if (!flying) {
+      c.strokeStyle = '#d9d2c2';
+      c.lineWidth = Math.max(1, R * 0.05);
+      c.lineCap = 'round';
+      for (const side of [-1, 1]) {
+        for (const [ax, ex, ey] of [[0.25, 0.55, 0.5], [0.12, 0.1, 0.62], [0, -0.35, 0.55]]) {
+          c.beginPath();
+          c.moveTo(ax * R, side * R * 0.15);
+          c.lineTo(ex * R, side * ey * R);
+          c.stroke();
+        }
+      }
+    }
+
+    // Hinterleib
+    const g = c.createLinearGradient(0, -R * 0.34, 0, R * 0.34);
+    g.addColorStop(0, '#a88a45');
+    g.addColorStop(0.5, '#f0e2ab');
+    g.addColorStop(1, '#a88a45');
+    c.fillStyle = g;
+    ellipse(c, -R * 0.42, 0, R * 0.55, R * 0.34); c.fill();
+    c.strokeStyle = 'rgba(70,45,10,0.35)';
+    c.lineWidth = Math.max(1, R * 0.04);
+    for (const x of [-0.25, -0.5, -0.75]) {
+      c.beginPath();
+      c.ellipse(x * R, 0, R * 0.08, R * 0.3, 0, -Math.PI / 2, Math.PI / 2);
+      c.stroke();
+    }
+    // Brust
+    c.fillStyle = '#d4cec0';
+    ellipse(c, R * 0.12, 0, R * 0.32, R * 0.3); c.fill();
+    c.fillStyle = 'rgba(40,40,40,0.3)';
+    for (const side of [-1, 1]) { ellipse(c, R * 0.12, side * R * 0.1, R * 0.24, R * 0.035); c.fill(); }
+    // Kopf und Augen
+    c.fillStyle = '#bdb6a6';
+    ellipse(c, R * 0.48, 0, R * 0.17, R * 0.25); c.fill();
+    for (const side of [-1, 1]) {
+      c.fillStyle = '#e0563f';
+      ellipse(c, R * 0.5, side * R * 0.17, R * 0.13, R * 0.11); c.fill();
+      c.fillStyle = 'rgba(255,255,255,0.6)';
+      ellipse(c, R * 0.53, side * R * 0.15, R * 0.035, R * 0.03); c.fill();
+    }
+    // Flügel: im Flug als flirrende Unschärfe, gelandet flach über dem Rücken
+    for (const side of [-1, 1]) {
+      if (flying) {
+        const f = Math.sin(t * 95 + (side > 0 ? 0 : 0.5));
+        for (const sp of [0.45, 0.9, 1.35]) drawWing(c, R, side, sp + f * 0.2, 0.32 + f * 0.1);
+      } else {
+        drawWing(c, R, side, 0.16, 0.9);
+      }
+    }
+    c.restore();
+  }
+
+  // ---------- Effekte ----------
+  let sparks = [];
+  function burst(x, y) {
+    const colors = ['#ffc84a', '#6cb2ff', '#ffffff', '#ffe7a8'];
+    for (let i = 0; i < 30; i++) {
+      const a = rand(0, TAU), sp = rand(0.2, 0.8) * M;
+      sparks.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: rand(0.5, 0.9), max: 0.9, color: colors[i % colors.length], size: rand(0.005, 0.012) * M });
+    }
+    sparks.push({ ring: true, x, y, life: 0.7, max: 0.7, size: M * 0.18, color: '#ffc84a' });
+  }
+  function updateSparks(dt) {
+    for (const s of sparks) {
+      s.life -= dt;
+      if (!s.ring) {
+        s.x += s.vx * dt; s.y += s.vy * dt;
+        s.vx *= 1 - dt * 2.5; s.vy *= 1 - dt * 2.5;
+      }
+    }
+    sparks = sparks.filter(s => s.life > 0);
+  }
+  function drawSparks(c) {
+    for (const s of sparks) {
+      const p = s.life / s.max;
+      if (s.ring) {
+        c.globalAlpha = p * 0.8;
+        c.strokeStyle = s.color;
+        c.lineWidth = Math.max(2, M * 0.008 * p);
+        ellipse(c, s.x, s.y, s.size * (1.3 - p), s.size * (1.3 - p)); c.stroke();
+      } else {
+        c.globalAlpha = Math.min(1, p * 1.5);
+        c.fillStyle = s.color;
+        ellipse(c, s.x, s.y, s.size, s.size); c.fill();
+      }
+    }
+    c.globalAlpha = 1;
+  }
+
+  function drawGrid(c) {
+    c.strokeStyle = 'rgba(108,178,255,0.55)';
+    c.lineWidth = 2;
+    for (let i = 1; i < 8; i++) {
+      c.beginPath(); c.moveTo((W / 8) * i, 0); c.lineTo((W / 8) * i, H); c.stroke();
+      c.beginPath(); c.moveTo(0, (H / 8) * i); c.lineTo(W, (H / 8) * i); c.stroke();
+    }
+    c.strokeStyle = '#ffc84a';
+    c.lineWidth = 6;
+    c.strokeRect(3, 3, W - 6, H - 6);
+    ellipse(c, W / 2, H / 2, M * 0.3, M * 0.3); c.stroke();
+  }
+
+  // ---------- Verbindung zum Handy (PeerJS / WebRTC) ----------
+  let peer = null, conn = null;
+  let code = readStore('brummer.code');
+  if (typeof code !== 'string' || !/^[A-Z2-9]{6}$/.test(code)) code = newCode();
+  function newCode() {
+    let s = '';
+    for (let i = 0; i < 6; i++) s += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+    return s;
+  }
+  function setStatus(text, state) {
+    statusEl.textContent = text;
+    statusEl.dataset.state = state;
+  }
+  function controllerUrl() {
+    const u = new URL('handy.html', location.href);
+    u.search = '';
+    u.hash = '';
+    u.searchParams.set('code', code);
+    return u.href;
+  }
+  function renderQr() {
+    document.getElementById('code').textContent = code;
+    const qrCanvas = document.getElementById('qr');
+    if (!window.qrcode) return;
+    const qr = window.qrcode(0, 'M');
+    qr.addData(controllerUrl());
+    qr.make();
+    const n = qr.getModuleCount(), cell = 8;
+    qrCanvas.width = qrCanvas.height = n * cell;
+    const q = qrCanvas.getContext('2d');
+    q.fillStyle = '#ffffff';
+    q.fillRect(0, 0, n * cell, n * cell);
+    q.fillStyle = '#000000';
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) q.fillRect(c * cell, r * cell, cell, cell);
+  }
+  function checkOrigin() {
+    const local = location.protocol === 'file:' || ['localhost', '127.0.0.1', '::1', '[::1]'].includes(location.hostname);
+    if (local) {
+      noteEl.hidden = false;
+      noteEl.textContent = 'Diese Seite ist nur lokal geöffnet. Das Handy kann die Adresse im QR-Code so nicht erreichen. Öffne die Seite über GitHub Pages oder über die Netzwerkadresse des Laptops.';
+    }
+  }
+  function openPeer() {
+    if (!window.Peer) {
+      setStatus('Kopplung nicht verfügbar. Steuern geht trotzdem mit der Maus.', 'warn');
+      return;
+    }
+    peer = new window.Peer(PEER_PREFIX + code.toLowerCase(), { debug: 0 });
+    peer.on('open', () => {
+      writeStore('brummer.code', code);
+      renderQr();
+      if (!conn) setStatus('Bereit. QR-Code mit dem Handy scannen.', 'idle');
+    });
+    peer.on('connection', c => {
+      if (conn) conn.close();
+      conn = c;
+      c.on('open', () => {
+        setStatus('Handy verbunden', 'ok');
+        sendState();
+      });
+      c.on('data', onMessage);
+      c.on('close', () => {
+        if (conn !== c) return;
+        conn = null;
+        setStatus('Handy getrennt. Zum Verbinden erneut scannen.', 'warn');
+      });
+    });
+    peer.on('disconnected', () => {
+      setTimeout(() => { if (peer && !peer.destroyed && peer.disconnected) peer.reconnect(); }, 2000);
+    });
+    peer.on('error', e => {
+      if (e.type === 'unavailable-id') {
+        code = newCode();
+        peer.destroy();
+        openPeer();
+      } else if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(e.type)) {
+        setStatus('Keine Verbindung zum Kopplungsdienst. Internet prüfen, es wird erneut versucht.', 'warn');
+      }
+    });
+  }
+  function send(msg) {
+    if (conn && conn.open) {
+      try { conn.send(msg); } catch { /* Verbindung gerade weg */ }
+    }
+  }
+  function sendState() {
+    send({ t: 'state', catches, landed: fly.state === 'landed', auto: settings.auto, buzz: settings.buzz, size: settings.size });
+  }
+  function onMessage(msg) {
+    if (!msg || typeof msg !== 'object') return;
+    switch (msg.t) {
+      case 'move':
+        if (Number.isFinite(msg.dx) && Number.isFinite(msg.dy)) {
+          steer(clamp(msg.dx, -2, 2) * W * INPUT_GAIN, clamp(msg.dy, -2, 2) * W * INPUT_GAIN);
+        }
+        break;
+      case 'catch': catchFly(); break;
+      case 'land': toggleLand(true); break;
+      case 'auto': setSetting('auto', !settings.auto); break;
+      case 'buzz': setSetting('buzz', !settings.buzz); break;
+      case 'size': {
+        const i = clamp(SIZE_ORDER.indexOf(settings.size) + (msg.step > 0 ? 1 : -1), 0, SIZE_ORDER.length - 1);
+        setSetting('size', SIZE_ORDER[i]);
+        break;
+      }
+    }
+  }
+
+  // ---------- Modi ----------
+  function setSetting(key, value) {
+    settings[key] = value;
+    writeStore('brummer.settings', settings);
+    syncMenu();
+    sendState();
+  }
+  function startPlay() {
+    initAudio();
+    mode = 'play';
+    lobby.hidden = true;
+    document.body.classList.add('playing');
+    const el = document.documentElement;
+    if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().catch(() => {});
+    if (canvas.requestPointerLock) {
+      try {
+        const p = canvas.requestPointerLock();
+        if (p && p.catch) p.catch(() => {});
+      } catch { /* optional */ }
+    }
+    requestWakeLock();
+  }
+  function showLobby() {
+    mode = 'lobby';
+    lobby.hidden = false;
+    handlesBox.hidden = true;
+    calHelp.hidden = true;
+    document.body.classList.remove('playing');
+    if (document.pointerLockElement) document.exitPointerLock();
+  }
+  function startCalibration() {
+    initAudio();
+    mode = 'calibrate';
+    lobby.hidden = true;
+    handlesBox.hidden = false;
+    calHelp.hidden = false;
+    applyWarp();
+  }
+  let wakeLock = null;
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator && !wakeLock) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      }
+    } catch { wakeLock = null; }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && mode === 'play') requestWakeLock();
+  });
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && mode === 'play') showLobby();
+  });
+
+  // ---------- Eingaben am Laptop ----------
+  document.addEventListener('mousemove', e => {
+    // Pointer-Lock liefert beim Einrasten manchmal einen riesigen Sprung, daher begrenzen
+    if (mode === 'play') steer(clamp(e.movementX, -120, 120) * 1.2, clamp(e.movementY, -120, 120) * 1.2);
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { if (mode !== 'lobby') showLobby(); return; }
+    if (mode === 'lobby' && e.target.closest('button')) return;
+    if (e.code === 'Space') { e.preventDefault(); initAudio(); catchFly(); }
+    else if (e.key === 'l' || e.key === 'L') toggleLand(true);
+    else if (e.key === 'a' || e.key === 'A') setSetting('auto', !settings.auto);
+  });
+
+  let dragging = null;
+  for (const el of handlesBox.children) {
+    el.addEventListener('pointerdown', e => {
+      dragging = Number(el.dataset.i);
+      try { el.setPointerCapture(e.pointerId); } catch { /* egal */ }
+    });
+    el.addEventListener('pointermove', e => {
+      if (dragging !== Number(el.dataset.i)) return;
+      corners[dragging] = [clamp(e.clientX / window.innerWidth, 0, 1), clamp(e.clientY / window.innerHeight, 0, 1)];
+      applyWarp();
+    });
+    el.addEventListener('pointerup', () => {
+      dragging = null;
+      writeStore('brummer.corners', corners);
+    });
+  }
+  document.getElementById('caldone').addEventListener('click', () => {
+    writeStore('brummer.corners', corners);
+    showLobby();
+  });
+  document.getElementById('calreset').addEventListener('click', () => {
+    corners = DEFAULT_CORNERS.map(p => p.slice());
+    writeStore('brummer.corners', corners);
+    applyWarp();
+  });
+  document.getElementById('start').addEventListener('click', startPlay);
+  document.getElementById('calibrate').addEventListener('click', startCalibration);
+
+  function syncMenu() {
+    for (const seg of document.querySelectorAll('.seg')) {
+      const key = seg.dataset.key;
+      for (const b of seg.querySelectorAll('button')) b.setAttribute('aria-pressed', String(String(settings[key]) === b.dataset.v));
+    }
+  }
+  for (const seg of document.querySelectorAll('.seg')) {
+    seg.addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      const key = seg.dataset.key, raw = b.dataset.v;
+      setSetting(key, key === 'size' ? raw : JSON.parse(raw));
+    });
+  }
+
+  // ---------- Schleife ----------
+  function resize() {
+    W = window.innerWidth;
+    H = window.innerHeight;
+    M = Math.min(W, H);
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    canvas.style.width = `${W}px`;
+    canvas.style.height = `${H}px`;
+    applyWarp();
+  }
+  let last = performance.now();
+  function frame(ms) {
+    const dt = Math.min(0.05, (ms - last) / 1000);
+    last = ms;
+    const t = ms / 1000;
+    updateFly(dt, t);
+    updateSparks(dt);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, W, H);
+    if (mode === 'calibrate') drawGrid(ctx);
+    drawFly(ctx, t);
+    drawSparks(ctx);
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  syncMenu();
+  checkOrigin();
+  renderQr();
+  openPeer();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
