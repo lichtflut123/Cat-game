@@ -75,6 +75,13 @@ Alle Geräusche werden live erzeugt (kostenlos, keine Audiodateien). Tonhöhe un
 
 Unter dem Menü stehen die letzten Runden mit Zeitpunkt, Beute, Dauer, Fängen und Fängen pro Minute, dazu die Summe aller Runden und der Rekord. Der Verlauf liegt nur im Browser des Laptops und lässt sich dort löschen.
 
+## Kein Ton?
+
+- Der Ton kommt vom **Laptop**, nicht vom Handy. Hängt der Laptop per HDMI am Projektor, gibt er den Ton oft über den Projektor aus. In den Toneinstellungen des Laptops die gewünschten Lautsprecher wählen.
+- Browser geben Ton erst frei, nachdem auf der Seite am Laptop einmal geklickt wurde. Das Handy zeigt „Kein Ton: einmal auf den Laptop klicken“, wenn das noch fehlt.
+- Im Menü zeigt **„Ton testen“** mit einem Balken, ob der Laptop gerade Ton ausgibt. Bewegt sich der Balken, aber es ist nichts zu hören, liegt es an Lautstärke oder Ausgabegerät des Laptops.
+- Pfotenjagd auf iPad/iPhone: Ab iOS 17 spielt das Spiel den Ton auch bei eingeschaltetem Stummschalter. Bei älteren Versionen den Stummschalter ausschalten.
+
 ## iPhone
 
 - QR-Code einfach mit der Kamera-App scannen, die Fernbedienung öffnet sich in Safari.

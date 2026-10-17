@@ -341,7 +341,10 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--sky); outli
       $('size').textContent = msg.size;
       const playing = msg.mode === 'play';
       $('start-round').hidden = playing || msg.mode === 'calibrate';
-      if (playing) {
+      if (playing && msg.sound && msg.audio === false) {
+        // der Laptop-Browser hat den Ton noch nicht freigegeben
+        $('round-text').textContent = 'Kein Ton: einmal auf den Laptop klicken';
+      } else if (playing) {
         lastEnd = null;
         $('round-text').textContent = msg.timeLeft === null ? 'Runde läuft · ohne Zeitlimit' : `Runde läuft · noch ${formatTime(msg.timeLeft)}`;
       } else if (msg.mode === 'calibrate') {
