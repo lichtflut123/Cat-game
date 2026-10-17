@@ -1,0 +1,1196 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Pfotenjagd</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#0d1321">
+<meta name="description" content="Pfotenjagd – ein Tablet-Spiel für Katzen: Maus, Fisch, Laserpunkt oder Käfer jagen.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Sniglet:wght@400;800&display=swap">
+<style>
+/* Layout: Vollbild-Canvas als Spielfläche; das Menü schwebt als Panel links, die gewählte Beute läuft live dahinter. */
+:root {
+  --night: #0d1321;
+  --panel: rgba(16, 23, 39, 0.88);
+  --line: rgba(160, 185, 230, 0.16);
+  --ink: #eef2fa;
+  --muted: #9ba8c2;
+  --amber: #ffc84a;
+  --amber-ink: #241a03;
+  --sky: #6cb2ff;
+  --display: "Sniglet", "Arial Rounded MT Bold", ui-rounded, system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--night);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.5;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+#stage {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+/* ---------- Menü ---------- */
+#menu {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding-block: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  pointer-events: none;
+}
+@media (min-width: 760px) {
+  #menu { padding-left: max(48px, env(safe-area-inset-left, 0px)); }
+}
+.panel {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 31rem;
+  max-height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  background: var(--panel);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 28px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.panel header { display: flex; flex-direction: column; gap: 6px; }
+.eyebrow {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sky);
+}
+h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(2.6rem, 9vw, 3.5rem);
+  line-height: 1;
+  color: var(--amber);
+  text-wrap: balance;
+}
+.lede { margin: 4px 0 0; color: var(--muted); max-width: 34ch; }
+
+.field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+@media (max-width: 380px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
+button { font: inherit; color: inherit; cursor: pointer; }
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px 8px;
+  border-radius: 16px;
+  border: 1.5px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.tile canvas { width: 56px; height: 56px; }
+.tile[aria-checked="true"] {
+  border-color: var(--amber);
+  background: rgba(255, 200, 74, 0.1);
+  color: var(--amber);
+}
+.options { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 14px; }
+@media (max-width: 420px) { .options { grid-template-columns: 1fr; } }
+.options .wide { grid-column: 1 / -1; }
+.seg {
+  display: flex;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.seg button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px 4px;
+  border: 0;
+  background: transparent;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+.seg button + button { border-left: 1.5px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--sky); color: #06152b; font-weight: 700; }
+
+.start {
+  border: 0;
+  border-radius: 999px;
+  padding: 16px 24px;
+  background: var(--amber);
+  color: var(--amber-ink);
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 1.45rem;
+  box-shadow: 0 8px 28px rgba(255, 200, 74, 0.25);
+  transition: transform 0.15s ease;
+}
+.start:active { transform: scale(0.97); }
+.hint { margin: -10px 0 0; font-size: 0.85rem; color: var(--muted); }
+
+.last {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(108, 178, 255, 0.08);
+  border: 1px solid rgba(108, 178, 255, 0.2);
+}
+.last-title { grid-column: 1 / -1; margin: 0; }
+.last div { display: flex; flex-direction: column; min-width: 0; }
+.last dt { font-size: 0.72rem; color: var(--muted); }
+.last dd { margin: 0; font-weight: 700; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+@media (max-width: 380px) { .last { grid-template-columns: repeat(2, 1fr); } }
+
+details.tips { border-top: 1px solid var(--line); padding-top: 14px; }
+details.tips summary { cursor: pointer; font-weight: 700; color: var(--ink); }
+details.tips ul { margin: 10px 0 0; padding-left: 1.1em; color: var(--muted); display: flex; flex-direction: column; gap: 6px; max-width: 62ch; }
+details.tips strong { color: var(--ink); }
+
+button:focus-visible, summary:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+
+/* ---------- Spiel-HUD ---------- */
+#hud {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: calc(14px + env(safe-area-inset-left, 0px));
+  font-weight: 700;
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  opacity: 0.35;
+  pointer-events: none;
+}
+#exit {
+  --p: 0;
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  right: calc(10px + env(safe-area-inset-right, 0px));
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: conic-gradient(var(--amber) calc(var(--p) * 360deg), rgba(255, 255, 255, 0.08) 0);
+  opacity: 0.3;
+  touch-action: none;
+  display: grid;
+  place-items: center;
+}
+#exit::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--night);
+}
+#exit svg { position: relative; width: 26px; height: 26px; fill: var(--ink); }
+#exit.holding { opacity: 0.9; }
+#holdhint {
+  position: fixed;
+  top: calc(76px + env(safe-area-inset-top, 0px));
+  right: calc(10px + env(safe-area-inset-right, 0px));
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  pointer-events: none;
+}
+</style>
+</head>
+<body>
+<canvas id="stage" aria-label="Spielfläche"></canvas>
+
+<div id="hud" hidden></div>
+<button id="exit" type="button" hidden aria-label="Zum Beenden 2 Sekunden gedrückt halten (oder Esc drücken)">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="16" rx="5.2" ry="4.3"/><ellipse cx="5.2" cy="10.2" rx="2" ry="2.5"/><ellipse cx="9.3" cy="6.4" rx="2" ry="2.6"/><ellipse cx="14.7" cy="6.4" rx="2" ry="2.6"/><ellipse cx="18.8" cy="10.2" rx="2" ry="2.5"/></svg>
+</button>
+<p id="holdhint" hidden>Gedrückt halten …</p>
+
+<main id="menu">
+  <section class="panel" aria-labelledby="title">
+    <header>
+      <p class="eyebrow">Tablet-Spiel für Katzen</p>
+      <h1 id="title">Pfotenjagd</h1>
+      <p class="lede">Beute huscht über den Bildschirm, deine Katze jagt mit der Pfote. Jeder Fang quietscht, plätschert oder zirpt.</p>
+    </header>
+
+    <div class="field">
+      <span class="label" id="prey-label">Beute</span>
+      <div class="tiles" role="radiogroup" aria-labelledby="prey-label">
+        <button type="button" class="tile" role="radio" data-prey="mouse" id="prey-mouse"><canvas></canvas><span>Maus</span></button>
+        <button type="button" class="tile" role="radio" data-prey="fish" id="prey-fish"><canvas></canvas><span>Fisch</span></button>
+        <button type="button" class="tile" role="radio" data-prey="laser" id="prey-laser"><canvas></canvas><span>Laser</span></button>
+        <button type="button" class="tile" role="radio" data-prey="bug" id="prey-bug"><canvas></canvas><span>Käfer</span></button>
+      </div>
+    </div>
+
+    <div class="options">
+      <div class="field wide">
+        <span class="label">Tempo</span>
+        <div class="seg" data-key="speed">
+          <button type="button" id="speed-slow" data-v="0.65">Gemütlich</button>
+          <button type="button" id="speed-normal" data-v="1">Normal</button>
+          <button type="button" id="speed-fast" data-v="1.4">Flink</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Beute gleichzeitig</span>
+        <div class="seg" data-key="count">
+          <button type="button" id="count-1" data-v="1">1</button>
+          <button type="button" id="count-2" data-v="2">2</button>
+          <button type="button" id="count-3" data-v="3">3</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Spielzeit</span>
+        <div class="seg" data-key="minutes">
+          <button type="button" id="min-5" data-v="5">5′</button>
+          <button type="button" id="min-10" data-v="10">10′</button>
+          <button type="button" id="min-15" data-v="15">15′</button>
+          <button type="button" id="min-0" data-v="0" aria-label="Unbegrenzt">∞</button>
+        </div>
+      </div>
+      <div class="field wide">
+        <span class="label">Ton</span>
+        <div class="seg" data-key="sound">
+          <button type="button" id="sound-0" data-v="0">Aus</button>
+          <button type="button" id="sound-1" data-v="1">Beim Fang</button>
+          <button type="button" id="sound-2" data-v="2">+ Lockrufe</button>
+        </div>
+      </div>
+    </div>
+
+    <button type="button" id="start" class="start">Jagd starten</button>
+    <p class="hint">Beenden: Pfote oben rechts 2 Sekunden gedrückt halten. Hier im Menü kannst du die Beute im Hintergrund schon antippen.</p>
+
+    <dl id="last" class="last" hidden>
+      <p class="label last-title">Letzte Runde</p>
+      <div><dt>Fänge</dt><dd id="last-catches">0</dd></div>
+      <div><dt>Pfotentipper</dt><dd id="last-taps">0</dd></div>
+      <div><dt>Trefferquote</dt><dd id="last-rate">–</dd></div>
+      <div><dt>Dauer</dt><dd id="last-time">0:00</dd></div>
+    </dl>
+
+    <details class="tips">
+      <summary>Tipps für Menschen</summary>
+      <ul>
+        <li><strong>Flach hinlegen:</strong> Tablet auf den Boden, Helligkeit hoch. Eine Schutzfolie fängt Krallenkratzer ab.</li>
+        <li><strong>Festhalten in der App:</strong> Auf dem iPad „Geführter Zugriff“ (Bedienungshilfen) aktivieren, auf Android „App anheften“. So landet die Katze nicht im Homescreen.</li>
+        <li><strong>Kurze Runden:</strong> 5 bis 10 Minuten reichen. Danach ein echtes Spielzeug oder ein Leckerli geben, damit die Jagd mit einer echten Beute endet. Das gilt besonders für den Laserpunkt.</li>
+        <li><strong>Lockrufe:</strong> Die Beute gibt ab und zu ein Geräusch von sich, das aus ihrer Richtung kommt. Das weckt die Neugier auch bei Katzen, die gerade nicht hinschauen.</li>
+      </ul>
+    </details>
+  </section>
+</main>
+
+<script>
+(() => {
+  'use strict';
+
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+  const bgCanvas = document.createElement('canvas');
+  const bgCtx = bgCanvas.getContext('2d');
+  const menu = document.getElementById('menu');
+  const hud = document.getElementById('hud');
+  const exitBtn = document.getElementById('exit');
+  const holdHint = document.getElementById('holdhint');
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const TAU = Math.PI * 2;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const randi = n => Math.floor(Math.random() * n);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  let W = 0, H = 0, M = 0, DPR = 1;
+
+  // Geschwindigkeiten und Größen relativ zur kürzeren Bildschirmseite (M), damit es auf Handy und Tablet gleich wirkt.
+  const TYPES = {
+    mouse: { size: 0.042, dart: 1.0, wander: 0.22, accel: 7, pauseMin: 0.5, pauseMax: 2.6, hide: 0.18, wallHug: true },
+    fish:  { size: 0.056, dart: 0.62, wander: 0.2, accel: 2.2, pauseMin: 0.2, pauseMax: 1.0, hide: 0.1 },
+    laser: { size: 0.018, dart: 1.7, wander: 0.45, accel: 22, pauseMin: 0.15, pauseMax: 1.2, hide: 0.12, jitter: true },
+    bug:   { size: 0.032, dart: 0.45, wander: 0.12, accel: 6, pauseMin: 0.6, pauseMax: 2.2, hide: 0.12 },
+  };
+  const BURST_COLORS = {
+    mouse: ['#ffc84a', '#ffe7a8', '#f2a6b0'],
+    fish: ['#ffd65a', '#8fd3ff', '#ffffff'],
+    laser: ['#ff5468', '#ffd0d6', '#ffc84a'],
+    bug: ['#6cb2ff', '#ffd34d', '#b8e0ff'],
+  };
+
+  // ---------- Einstellungen ----------
+  function readStore(key) {
+    try { return JSON.parse(localStorage.getItem(key)) || null; } catch { return null; }
+  }
+  function writeStore(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Speicher nicht verfügbar */ }
+  }
+  const settings = Object.assign({ prey: 'mouse', speed: 1, count: 1, minutes: 10, sound: 2 }, readStore('pfotenjagd.settings'));
+  if (!TYPES[settings.prey]) settings.prey = 'mouse';
+  let lastRound = readStore('pfotenjagd.last');
+
+  // ---------- Ton (alles synthetisch, keine Dateien) ----------
+  let audio = null, master = null, noiseBuf = null;
+  function initAudio() {
+    if (audio) {
+      if (audio.state === 'suspended') audio.resume();
+      return;
+    }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audio = new AC();
+    master = audio.createGain();
+    master.gain.value = 0.8;
+    master.connect(audio.destination);
+    noiseBuf = audio.createBuffer(1, audio.sampleRate, audio.sampleRate);
+    const data = noiseBuf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  }
+  function output(pan) {
+    if (!audio.createStereoPanner) return master;
+    const p = audio.createStereoPanner();
+    p.pan.value = clamp(pan, -1, 1);
+    p.connect(master);
+    return p;
+  }
+  function envelope(g, t, vol, dur) {
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  }
+  function tone({ type = 'sine', f0, f1, f2, dur, vol, pan = 0, delay = 0 }) {
+    const t = audio.currentTime + delay;
+    const o = audio.createOscillator();
+    const g = audio.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, t);
+    if (f2) {
+      o.frequency.linearRampToValueAtTime(f1, t + dur * 0.4);
+      o.frequency.linearRampToValueAtTime(f2, t + dur);
+    } else {
+      o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    }
+    envelope(g, t, vol, dur);
+    o.connect(g).connect(output(pan));
+    o.start(t);
+    o.stop(t + dur + 0.05);
+  }
+  function noise({ dur, freq, q = 1, vol, pan = 0, delay = 0 }) {
+    const t = audio.currentTime + delay;
+    const src = audio.createBufferSource();
+    src.buffer = noiseBuf;
+    const f = audio.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.setValueAtTime(freq, t);
+    f.frequency.exponentialRampToValueAtTime(freq * 0.4, t + dur);
+    f.Q.value = q;
+    const g = audio.createGain();
+    envelope(g, t, vol, dur);
+    src.connect(f).connect(g).connect(output(pan));
+    src.start(t, Math.random() * 0.5);
+    src.stop(t + dur + 0.05);
+  }
+  const SOUNDS = {
+    mouse(pan, v) {
+      tone({ f0: 2400, f1: 3600, f2: 2700, dur: 0.11, vol: 0.22 * v, pan });
+      tone({ f0: 2600, f1: 3900, f2: 3000, dur: 0.09, vol: 0.18 * v, pan, delay: 0.14 });
+    },
+    fish(pan, v) {
+      noise({ dur: 0.35, freq: 1100, q: 0.8, vol: 0.6 * v, pan });
+      tone({ f0: 520, f1: 170, dur: 0.18, vol: 0.16 * v, pan });
+    },
+    laser(pan, v) {
+      tone({ f0: 1400, f1: 2300, dur: 0.08, vol: 0.14 * v, pan });
+      tone({ type: 'triangle', f0: 2300, f1: 1500, dur: 0.2, vol: 0.12 * v, pan, delay: 0.07 });
+    },
+    bug(pan, v) {
+      for (let i = 0; i < 4; i++) tone({ type: 'square', f0: 4300, f1: 3800, dur: 0.035, vol: 0.05 * v, pan, delay: i * 0.055 });
+    },
+  };
+  function playSound(type, x, vol = 1, isLure = false) {
+    if (!audio || settings.sound === 0 || (isLure && settings.sound < 2)) return;
+    SOUNDS[type](W ? (x / W) * 2 - 1 : 0, vol);
+  }
+
+  // ---------- Zeichnen der Beute ----------
+  function ellipse(c, x, y, rx, ry, rot = 0) {
+    c.beginPath();
+    c.ellipse(x, y, rx, ry, rot, 0, TAU);
+  }
+
+  function drawMouse(c, r, ph, moving) {
+    const wag = Math.sin(ph * (moving ? 14 : 3)) * r * (moving ? 0.5 : 0.25);
+    c.lineCap = 'round';
+    c.strokeStyle = '#c99a9a';
+    c.lineWidth = r * 0.11;
+    c.beginPath();
+    c.moveTo(-r * 0.95, 0);
+    c.bezierCurveTo(-r * 1.6, wag, -r * 2.1, -wag, -r * 2.8, wag * 0.6);
+    c.stroke();
+    if (moving) {
+      const s = Math.sin(ph * 22) * r * 0.15;
+      c.fillStyle = '#e8b4b4';
+      for (const side of [-1, 1]) {
+        ellipse(c, r * 0.45 + s * side, side * r * 0.56, r * 0.13, r * 0.08); c.fill();
+        ellipse(c, -r * 0.5 - s * side, side * r * 0.56, r * 0.15, r * 0.09); c.fill();
+      }
+    }
+    const g = c.createRadialGradient(-r * 0.1, -r * 0.25, r * 0.1, 0, 0, r * 1.15);
+    g.addColorStop(0, '#dcd6cd');
+    g.addColorStop(1, '#8d867c');
+    c.fillStyle = g;
+    ellipse(c, 0, 0, r * 1.05, r * 0.62); c.fill();
+    c.fillStyle = '#c6bfb5';
+    ellipse(c, r * 0.85, 0, r * 0.52, r * 0.42); c.fill();
+    for (const side of [-1, 1]) {
+      c.fillStyle = '#a49d93';
+      ellipse(c, r * 0.6, side * r * 0.4, r * 0.27, r * 0.27); c.fill();
+      c.fillStyle = '#eaafb2';
+      ellipse(c, r * 0.62, side * r * 0.41, r * 0.17, r * 0.17); c.fill();
+    }
+    for (const side of [-1, 1]) {
+      c.fillStyle = '#14100c';
+      ellipse(c, r * 1.05, side * r * 0.17, r * 0.068, r * 0.068); c.fill();
+      c.fillStyle = 'rgba(255,255,255,0.85)';
+      ellipse(c, r * 1.07, side * r * 0.17 - r * 0.025, r * 0.022, r * 0.022); c.fill();
+    }
+    c.fillStyle = '#f08a9a';
+    ellipse(c, r * 1.36, 0, r * 0.085, r * 0.085); c.fill();
+    c.strokeStyle = 'rgba(255,255,255,0.5)';
+    c.lineWidth = Math.max(1, r * 0.025);
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < 3; i++) {
+        c.beginPath();
+        c.moveTo(r * 1.27, side * r * 0.07);
+        c.lineTo(r * 1.72, side * r * (0.12 + i * 0.16));
+        c.stroke();
+      }
+    }
+  }
+
+  function drawFish(c, r, ph, moving) {
+    const wag = Math.sin(ph * (moving ? 11 : 4)) * (moving ? 0.45 : 0.25);
+    c.rotate(wag * 0.15);
+    c.save();
+    c.translate(-r * 0.85, 0);
+    c.rotate(wag);
+    c.fillStyle = '#ff9f2e';
+    c.beginPath();
+    c.moveTo(r * 0.05, 0);
+    c.quadraticCurveTo(-r * 0.5, -r * 0.2, -r * 0.75, -r * 0.55);
+    c.quadraticCurveTo(-r * 0.55, 0, -r * 0.75, r * 0.55);
+    c.quadraticCurveTo(-r * 0.5, r * 0.2, r * 0.05, 0);
+    c.fill();
+    c.restore();
+    c.fillStyle = 'rgba(255,170,60,0.85)';
+    for (const side of [-1, 1]) {
+      ellipse(c, r * 0.12, side * r * 0.5, r * 0.3, r * 0.12, side * (0.6 + wag * 0.4)); c.fill();
+    }
+    const g = c.createLinearGradient(0, -r * 0.55, 0, r * 0.55);
+    g.addColorStop(0, '#ffa834');
+    g.addColorStop(0.5, '#ffd95c');
+    g.addColorStop(1, '#ffa834');
+    c.fillStyle = g;
+    c.beginPath();
+    c.moveTo(r * 1.0, 0);
+    c.bezierCurveTo(r * 0.9, -r * 0.62, -r * 0.5, -r * 0.55, -r * 0.92, 0);
+    c.bezierCurveTo(-r * 0.5, r * 0.55, r * 0.9, r * 0.62, r * 1.0, 0);
+    c.fill();
+    c.strokeStyle = 'rgba(255,255,255,0.4)';
+    c.lineWidth = r * 0.07;
+    c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(r * 0.45, 0);
+    c.lineTo(-r * 0.6, 0);
+    c.stroke();
+    for (const side of [-1, 1]) {
+      c.fillStyle = '#ffffff';
+      ellipse(c, r * 0.62, side * r * 0.24, r * 0.11, r * 0.11); c.fill();
+      c.fillStyle = '#10131a';
+      ellipse(c, r * 0.65, side * r * 0.24, r * 0.06, r * 0.06); c.fill();
+    }
+  }
+
+  function drawLaser(c, r, ph) {
+    const flicker = 1 + Math.sin(ph * 41) * 0.07 + Math.sin(ph * 17) * 0.05;
+    const R = r * 3.2 * flicker;
+    const g = c.createRadialGradient(0, 0, 0, 0, 0, R);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.12, 'rgba(255,90,100,1)');
+    g.addColorStop(0.3, 'rgba(255,30,50,0.6)');
+    g.addColorStop(1, 'rgba(255,0,40,0)');
+    c.fillStyle = g;
+    ellipse(c, 0, 0, R, R); c.fill();
+  }
+
+  function drawBug(c, r, ph, moving) {
+    c.lineCap = 'round';
+    c.strokeStyle = '#06090d';
+    c.lineWidth = r * 0.1;
+    for (let i = 0; i < 3; i++) {
+      for (const side of [-1, 1]) {
+        const k = (i - 1) * r * 0.45;
+        const sw = moving ? Math.sin(ph * 26 + i * 2.1 + (side > 0 ? Math.PI : 0)) * r * 0.18 : 0;
+        c.beginPath();
+        c.moveTo(k, side * r * 0.3);
+        c.lineTo(k + sw + (i - 1) * r * 0.22, side * r * 0.98);
+        c.stroke();
+      }
+    }
+    c.lineWidth = r * 0.06;
+    for (const side of [-1, 1]) {
+      c.beginPath();
+      c.moveTo(r * 1.05, side * r * 0.12);
+      c.quadraticCurveTo(r * 1.45, side * r * 0.15, r * 1.62, side * r * (0.45 + Math.sin(ph * 6 + side) * 0.06));
+      c.stroke();
+    }
+    c.fillStyle = '#121820';
+    ellipse(c, r * 0.85, 0, r * 0.33, r * 0.3); c.fill();
+    const g = c.createRadialGradient(-r * 0.2, -r * 0.3, r * 0.05, 0, 0, r);
+    g.addColorStop(0, '#8ed6ff');
+    g.addColorStop(0.55, '#2f78de');
+    g.addColorStop(1, '#173f88');
+    c.fillStyle = g;
+    ellipse(c, 0, 0, r * 0.95, r * 0.72); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.45)';
+    c.lineWidth = r * 0.05;
+    c.beginPath();
+    c.moveTo(r * 0.58, 0);
+    c.lineTo(-r * 0.95, 0);
+    c.stroke();
+    c.fillStyle = '#ffd34d';
+    for (const side of [-1, 1]) {
+      for (const [x, y, s] of [[-0.35, 0.36, 0.12], [0.18, 0.4, 0.1], [-0.68, 0.2, 0.09]]) {
+        ellipse(c, x * r, side * y * r, s * r, s * r); c.fill();
+      }
+    }
+    c.fillStyle = 'rgba(255,255,255,0.22)';
+    ellipse(c, r * 0.1, -r * 0.3, r * 0.35, r * 0.13, -0.2); c.fill();
+  }
+
+  function drawPreyShape(c, type, r, ph, moving) {
+    if (type === 'mouse') drawMouse(c, r, ph, moving);
+    else if (type === 'fish') drawFish(c, r, ph, moving);
+    else if (type === 'laser') drawLaser(c, r, ph);
+    else drawBug(c, r, ph, moving);
+  }
+
+  // ---------- Beute-Verhalten ----------
+  class Prey {
+    constructor(type, opts = {}) {
+      this.type = type;
+      this.t = TYPES[type];
+      this.phase = Math.random() * 10;
+      this.vx = this.vy = 0;
+      this.angle = Math.random() * TAU;
+      this.tx = this.ty = 0;
+      this.speed = 0;
+      this.catchAnim = 0;
+      if (opts.visible) {
+        this.x = rand(W * 0.45, W * 0.85);
+        this.y = rand(H * 0.25, H * 0.75);
+        this.setState('pause');
+      } else {
+        this.placeOutside();
+        this.setState('hidden');
+        this.timer = opts.delay ?? rand(0.3, 1.2);
+      }
+    }
+    get r() { return this.t.size * M; }
+    get active() { return this.state !== 'hidden' && this.state !== 'caught'; }
+
+    placeOutside() {
+      const pad = this.r * 3.2;
+      switch (randi(4)) {
+        case 0: this.x = rand(0, W); this.y = -pad; break;
+        case 1: this.x = W + pad; this.y = rand(0, H); break;
+        case 2: this.x = rand(0, W); this.y = H + pad; break;
+        default: this.x = -pad; this.y = rand(0, H);
+      }
+      this.vx = this.vy = 0;
+      this.angle = Math.atan2(H / 2 - this.y, W / 2 - this.x);
+    }
+
+    pickTarget(kind) {
+      const m = this.r * 1.6;
+      if (kind === 'dart' && this.t.wallHug && Math.random() < 0.6) {
+        // Mäuse flitzen gern an den Rändern entlang
+        switch (randi(4)) {
+          case 0: return [rand(m, W - m), m];
+          case 1: return [W - m, rand(m, H - m)];
+          case 2: return [rand(m, W - m), H - m];
+          default: return [m, rand(m, H - m)];
+        }
+      }
+      if (kind === 'wander') {
+        const d = M * rand(0.1, 0.3);
+        const a = this.angle + rand(-1.3, 1.3);
+        return [clamp(this.x + Math.cos(a) * d, m, W - m), clamp(this.y + Math.sin(a) * d, m, H - m)];
+      }
+      return [rand(m, W - m), rand(m, H - m)];
+    }
+
+    setState(state, fx, fy) {
+      const t = this.t;
+      const sf = settings.speed;
+      this.state = state;
+      switch (state) {
+        case 'pause':
+          this.timer = rand(t.pauseMin, t.pauseMax) / Math.sqrt(sf);
+          break;
+        case 'dart':
+          [this.tx, this.ty] = this.pickTarget('dart');
+          this.speed = t.dart * M * sf * rand(0.8, 1.2);
+          this.timer = 5;
+          break;
+        case 'wander':
+          [this.tx, this.ty] = this.pickTarget('wander');
+          this.speed = t.wander * M * sf * rand(0.8, 1.2);
+          this.timer = 4;
+          break;
+        case 'hide': {
+          const pad = this.r * 3.5;
+          const d = [this.y, W - this.x, H - this.y, this.x];
+          const edge = d.indexOf(Math.min(...d));
+          this.tx = edge === 1 ? W + pad : edge === 3 ? -pad : this.x + rand(-M, M) * 0.2;
+          this.ty = edge === 0 ? -pad : edge === 2 ? H + pad : this.y + rand(-M, M) * 0.2;
+          this.speed = t.dart * M * sf;
+          this.timer = 8;
+          break;
+        }
+        case 'flee': {
+          const m = this.r * 1.6;
+          let dx = this.x - fx, dy = this.y - fy;
+          const d = Math.hypot(dx, dy) || 1;
+          dx /= d; dy /= d;
+          const dist = M * rand(0.35, 0.6);
+          const side = rand(-0.5, 0.5);
+          this.tx = clamp(this.x + (dx - dy * side) * dist, m, W - m);
+          this.ty = clamp(this.y + (dy + dx * side) * dist, m, H - m);
+          if (Math.hypot(this.tx - this.x, this.ty - this.y) < M * 0.15) [this.tx, this.ty] = this.pickTarget('dart');
+          this.speed = t.dart * M * sf * 1.3;
+          this.timer = 2.5;
+          break;
+        }
+        case 'hidden':
+          this.timer = rand(1, 3.5);
+          break;
+        case 'caught':
+          this.timer = this.catchAnim = 0.55;
+          break;
+      }
+    }
+
+    next() {
+      const r = Math.random();
+      if (r < this.t.hide) this.setState('hide');
+      else if (r < this.t.hide + 0.45) this.setState('dart');
+      else this.setState('wander');
+    }
+
+    update(dt) {
+      this.phase += dt;
+      this.timer -= dt;
+      const t = this.t;
+      if (this.state === 'hidden') {
+        if (this.timer <= 0) {
+          this.placeOutside();
+          this.setState('dart');
+        }
+        return;
+      }
+      if (this.state === 'caught') {
+        if (this.timer <= 0) {
+          this.placeOutside();
+          this.setState('hidden');
+        }
+        return;
+      }
+
+      let dvx = 0, dvy = 0;
+      if (this.state !== 'pause') {
+        const dx = this.tx - this.x, dy = this.ty - this.y;
+        const d = Math.hypot(dx, dy);
+        if (d < this.r * 0.6 || (this.timer <= 0 && this.state !== 'hide')) {
+          if (this.state === 'hide') this.setState('hidden');
+          else if (this.state === 'wander' && Math.random() < 0.5) this.setState('wander');
+          else this.setState('pause');
+          return;
+        }
+        const sp = this.speed * Math.min(1, d / (this.r * 2.5) + 0.35);
+        dvx = (dx / d) * sp;
+        dvy = (dy / d) * sp;
+        if (this.state === 'wander') {
+          const sway = Math.sin(this.phase * 3.5) * 0.45;
+          dvx += -dvy * sway;
+          dvy += (dx / d) * sp * sway;
+        }
+      } else if (this.timer <= 0) {
+        this.next();
+      }
+
+      const k = 1 - Math.exp(-t.accel * dt);
+      this.vx += (dvx - this.vx) * k;
+      this.vy += (dvy - this.vy) * k;
+      this.x += this.vx * dt;
+      this.y += this.vy * dt;
+      if (t.jitter) {
+        this.x += rand(-1, 1) * this.r * 0.12;
+        this.y += rand(-1, 1) * this.r * 0.12;
+      }
+      const v = Math.hypot(this.vx, this.vy);
+      if (v > this.r * 0.4) {
+        const target = Math.atan2(this.vy, this.vx);
+        let diff = target - this.angle;
+        diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+        this.angle += diff * Math.min(1, dt * 10);
+      } else if (this.state === 'pause' && Math.random() < dt * 0.8) {
+        this.angle += rand(-0.5, 0.5); // kurzes Umschauen
+      }
+    }
+
+    get moving() { return Math.hypot(this.vx, this.vy) > this.r * 0.4; }
+
+    draw(c) {
+      if (this.state === 'hidden') return;
+      const r = this.r;
+      let scale = 1, alpha = 1;
+      if (this.state === 'caught') {
+        const p = 1 - this.timer / this.catchAnim;
+        scale = 1 + p * 0.6;
+        alpha = 1 - p;
+      }
+      c.save();
+      c.globalAlpha = alpha;
+      c.translate(this.x, this.y);
+      if (this.type !== 'laser') {
+        c.fillStyle = 'rgba(0,0,0,0.35)';
+        ellipse(c, r * 0.12, r * 0.22, r * 1.15 * scale, r * 0.72 * scale, this.angle); c.fill();
+      }
+      c.rotate(this.angle);
+      c.scale(scale, scale);
+      drawPreyShape(c, this.type, r, this.phase, this.moving);
+      c.restore();
+    }
+  }
+
+  // ---------- Effekte ----------
+  let effects = [];
+  function addPaw(x, y) {
+    effects.push({ k: 'paw', x, y, life: 1.1, max: 1.1, a: rand(-0.5, 0.5) });
+  }
+  function addRing(x, y, color, size) {
+    effects.push({ k: 'ring', x, y, life: 0.8, max: 0.8, color, size });
+  }
+  function burst(x, y, type) {
+    const colors = BURST_COLORS[type];
+    for (let i = 0; i < 26; i++) {
+      const a = rand(0, TAU), sp = rand(0.2, 0.75) * M;
+      effects.push({ k: 'spark', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: rand(0.5, 0.9), max: 0.9, color: colors[i % colors.length], size: rand(0.006, 0.014) * M });
+    }
+    addRing(x, y, colors[0], M * 0.2);
+  }
+  function drawPaw(c, s) {
+    ellipse(c, 0, s * 0.25, s * 0.42, s * 0.34); c.fill();
+    for (const [x, y] of [[-0.44, -0.2], [-0.16, -0.48], [0.16, -0.48], [0.44, -0.2]]) {
+      ellipse(c, x * s, y * s, s * 0.15, s * 0.19); c.fill();
+    }
+  }
+  function updateEffects(dt) {
+    for (const e of effects) {
+      e.life -= dt;
+      if (e.k === 'spark') {
+        e.x += e.vx * dt; e.y += e.vy * dt;
+        e.vx *= 1 - dt * 2.5; e.vy *= 1 - dt * 2.5;
+      }
+    }
+    effects = effects.filter(e => e.life > 0);
+  }
+  function drawEffects(c, layer) {
+    for (const e of effects) {
+      const p = e.life / e.max;
+      if (layer === 'under' && e.k === 'paw') {
+        c.save();
+        c.translate(e.x, e.y);
+        c.rotate(e.a);
+        c.globalAlpha = p * 0.28;
+        c.fillStyle = '#cfe3ff';
+        drawPaw(c, M * 0.05);
+        c.restore();
+      } else if (layer === 'over' && e.k === 'ring') {
+        c.globalAlpha = p * 0.8;
+        c.strokeStyle = e.color;
+        c.lineWidth = Math.max(2, M * 0.008 * p);
+        ellipse(c, e.x, e.y, e.size * (1.3 - p), e.size * (1.3 - p)); c.stroke();
+      } else if (layer === 'over' && e.k === 'spark') {
+        c.globalAlpha = Math.min(1, p * 1.5);
+        c.fillStyle = e.color;
+        ellipse(c, e.x, e.y, e.size, e.size); c.fill();
+      }
+    }
+    c.globalAlpha = 1;
+  }
+
+  // ---------- Hintergründe ----------
+  function renderBackground() {
+    bgCanvas.width = Math.round(W * DPR);
+    bgCanvas.height = Math.round(H * DPR);
+    const c = bgCtx;
+    c.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const type = settings.prey;
+    if (type === 'mouse') {
+      // Dielenboden
+      const plank = Math.max(48, M * 0.13);
+      for (let y = 0, i = 0; y < H; y += plank, i++) {
+        c.fillStyle = i % 2 ? '#161d2a' : '#19202e';
+        c.fillRect(0, y, W, plank);
+        c.fillStyle = 'rgba(0,0,0,0.35)';
+        c.fillRect(0, y, W, 2);
+        const off = (i * 0.37 % 1) * W;
+        c.fillRect((off + W * 0.5) % W, y, 2, plank);
+        c.strokeStyle = 'rgba(160,185,230,0.04)';
+        c.lineWidth = 1;
+        for (let g = 0; g < 3; g++) {
+          const gy = y + plank * rand(0.2, 0.8);
+          c.beginPath();
+          c.moveTo(0, gy);
+          c.bezierCurveTo(W * 0.3, gy + rand(-6, 6), W * 0.6, gy + rand(-6, 6), W, gy);
+          c.stroke();
+        }
+      }
+    } else if (type === 'fish') {
+      const g = c.createRadialGradient(W * 0.5, H * 0.45, M * 0.1, W * 0.5, H * 0.5, Math.max(W, H) * 0.75);
+      g.addColorStop(0, '#11405f');
+      g.addColorStop(1, '#061727');
+      c.fillStyle = g;
+      c.fillRect(0, 0, W, H);
+      for (let i = 0; i < 40; i++) {
+        const r = rand(0.01, 0.035) * M;
+        c.fillStyle = `rgba(20,10,0,${rand(0.08, 0.2)})`;
+        ellipse(c, rand(0, W), rand(0, H), r * 1.3, r, rand(0, TAU)); c.fill();
+      }
+    } else if (type === 'laser') {
+      c.fillStyle = '#16131f';
+      c.fillRect(0, 0, W, H);
+      for (let i = 0; i < (W * H) / 260; i++) {
+        c.fillStyle = Math.random() < 0.5 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.2)';
+        c.fillRect(rand(0, W), rand(0, H), 2, 2);
+      }
+    } else {
+      c.fillStyle = '#0e1a14';
+      c.fillRect(0, 0, W, H);
+      c.lineCap = 'round';
+      for (let i = 0; i < (W * H) / 900; i++) {
+        const x = rand(0, W), y = rand(0, H), len = rand(0.02, 0.05) * M;
+        c.strokeStyle = `rgba(${randi(40) + 60},${randi(60) + 120},${randi(40) + 70},${rand(0.05, 0.14)})`;
+        c.lineWidth = rand(1, 2.5);
+        c.beginPath();
+        c.moveTo(x, y);
+        c.quadraticCurveTo(x + rand(-4, 4), y - len * 0.5, x + rand(-10, 10), y - len);
+        c.stroke();
+      }
+    }
+    const v = c.createRadialGradient(W / 2, H / 2, M * 0.3, W / 2, H / 2, Math.hypot(W, H) * 0.6);
+    v.addColorStop(0, 'rgba(0,0,0,0)');
+    v.addColorStop(1, 'rgba(0,0,0,0.45)');
+    c.fillStyle = v;
+    c.fillRect(0, 0, W, H);
+  }
+  function drawCaustics(c, t) {
+    c.save();
+    c.strokeStyle = 'rgba(160,215,255,0.045)';
+    c.lineWidth = M * 0.05;
+    for (let i = 0; i < 6; i++) {
+      c.beginPath();
+      const base = (H / 6) * (i + 0.5);
+      for (let x = -20; x <= W + 20; x += 24) {
+        const y = base + Math.sin(x * 0.006 + t * 0.6 + i * 1.7) * M * 0.05 + Math.sin(x * 0.013 - t * 0.4 + i) * M * 0.02;
+        if (x === -20) c.moveTo(x, y); else c.lineTo(x, y);
+      }
+      c.stroke();
+    }
+    c.restore();
+  }
+
+  // ---------- Spielzustand ----------
+  let mode = 'menu';
+  let prey = [];
+  let stats = { catches: 0, taps: 0, elapsed: 0 };
+  let lureTimer = 0;
+  let wakeLock = null;
+  let holdStart = 0;
+  let lastHud = '';
+
+  function resetPrey(demo) {
+    prey = Array.from({ length: settings.count }, (_, i) =>
+      new Prey(settings.prey, demo ? { visible: true } : { delay: 0.4 + i * 0.9 }));
+  }
+
+  function formatTime(sec) {
+    sec = Math.max(0, Math.round(sec));
+    return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+  }
+
+  function resize() {
+    W = window.innerWidth;
+    H = window.innerHeight;
+    M = Math.min(W, H);
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    renderBackground();
+    for (const p of prey) {
+      if (p.active) {
+        p.x = clamp(p.x, 0, W);
+        p.y = clamp(p.y, 0, H);
+      }
+    }
+  }
+
+  function handleTap(x, y) {
+    initAudio();
+    if (mode === 'play') {
+      stats.taps++;
+    }
+    let best = null, bestD = Infinity;
+    for (const p of prey) {
+      if (!p.active) continue;
+      const d = Math.hypot(p.x - x, p.y - y);
+      // Pfoten sind stumpf: großzügige Trefferzone
+      if (d < Math.max(p.r * 1.5, 26) + 22 && d < bestD) { best = p; bestD = d; }
+    }
+    if (best) {
+      best.setState('caught');
+      if (mode === 'play') stats.catches++;
+      burst(best.x, best.y, best.type);
+      playSound(best.type, best.x, 1);
+      if (navigator.vibrate) try { navigator.vibrate(30); } catch { /* egal */ }
+    } else {
+      addPaw(x, y);
+      if (settings.prey === 'fish') addRing(x, y, 'rgba(180,225,255,0.7)', M * 0.12);
+      for (const p of prey) {
+        if (p.active && Math.hypot(p.x - x, p.y - y) < p.r * 4 + M * 0.12) p.setState('flee', x, y);
+      }
+    }
+  }
+
+  function startGame() {
+    initAudio();
+    mode = 'play';
+    stats = { catches: 0, taps: 0, elapsed: 0 };
+    effects = [];
+    lureTimer = rand(3, 6);
+    resetPrey(false);
+    menu.hidden = true;
+    hud.hidden = false;
+    exitBtn.hidden = false;
+    const el = document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+    else if (el.webkitRequestFullscreen) try { el.webkitRequestFullscreen(); } catch { /* nicht unterstützt */ }
+    requestWakeLock();
+  }
+
+  function endGame() {
+    if (mode !== 'play') return;
+    mode = 'menu';
+    holdStart = 0;
+    exitBtn.classList.remove('holding');
+    exitBtn.style.setProperty('--p', 0);
+    holdHint.hidden = true;
+    lastRound = { catches: stats.catches, taps: stats.taps, elapsed: stats.elapsed };
+    writeStore('pfotenjagd.last', lastRound);
+    showLastRound();
+    hud.hidden = true;
+    exitBtn.hidden = true;
+    menu.hidden = false;
+    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+    effects = [];
+    resetPrey(true);
+  }
+
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+    } catch { wakeLock = null; }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && mode === 'play') requestWakeLock();
+  });
+
+  function showLastRound() {
+    const box = document.getElementById('last');
+    if (!lastRound) { box.hidden = true; return; }
+    box.hidden = false;
+    document.getElementById('last-catches').textContent = lastRound.catches;
+    document.getElementById('last-taps').textContent = lastRound.taps;
+    document.getElementById('last-rate').textContent = lastRound.taps ? `${Math.round((lastRound.catches / lastRound.taps) * 100)} %` : '–';
+    document.getElementById('last-time').textContent = formatTime(lastRound.elapsed);
+  }
+
+  // ---------- Schleife ----------
+  let lastT = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - lastT) / 1000);
+    lastT = now;
+    const t = now / 1000;
+    const moving = !(mode === 'menu' && reducedMotion);
+
+    if (moving) for (const p of prey) p.update(dt);
+    updateEffects(dt);
+
+    if (mode === 'play') {
+      stats.elapsed += dt;
+      const limit = settings.minutes * 60;
+      if (limit && stats.elapsed >= limit) endGame();
+      lureTimer -= dt;
+      if (lureTimer <= 0) {
+        const visible = prey.filter(p => p.active);
+        const src = visible.length ? visible[randi(visible.length)] : null;
+        if (src) playSound(src.type, src.x, 0.45, true);
+        lureTimer = rand(6, 14);
+      }
+      const text = `Fänge ${stats.catches}${limit ? ` · ${formatTime(limit - stats.elapsed)}` : ''}`;
+      if (text !== lastHud) { hud.textContent = text; lastHud = text; }
+      if (holdStart) {
+        const p = Math.min(1, (now - holdStart) / 2000);
+        exitBtn.style.setProperty('--p', p.toFixed(3));
+        if (p >= 1) endGame();
+      }
+    }
+
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.drawImage(bgCanvas, 0, 0, W, H);
+    if (settings.prey === 'fish') drawCaustics(ctx, moving ? t : 0);
+    drawEffects(ctx, 'under');
+    for (const p of prey) p.draw(ctx);
+    drawEffects(ctx, 'over');
+
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- Eingaben ----------
+  canvas.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    handleTap(e.clientX, e.clientY);
+  });
+  for (const ev of ['contextmenu', 'gesturestart', 'dblclick']) {
+    document.addEventListener(ev, e => { if (mode === 'play' || e.target === canvas) e.preventDefault(); });
+  }
+  document.addEventListener('touchmove', e => { if (mode === 'play') e.preventDefault(); }, { passive: false });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') endGame(); });
+
+  function cancelHold() {
+    holdStart = 0;
+    exitBtn.classList.remove('holding');
+    exitBtn.style.setProperty('--p', 0);
+    holdHint.hidden = true;
+  }
+  exitBtn.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    holdStart = performance.now();
+    exitBtn.classList.add('holding');
+    holdHint.hidden = false;
+    try { exitBtn.setPointerCapture(e.pointerId); } catch { /* egal */ }
+  });
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) exitBtn.addEventListener(ev, cancelHold);
+
+  // ---------- Menü ----------
+  const tiles = [...document.querySelectorAll('.tile')];
+  function syncMenu() {
+    for (const tile of tiles) tile.setAttribute('aria-checked', String(tile.dataset.prey === settings.prey));
+    for (const seg of document.querySelectorAll('.seg')) {
+      const key = seg.dataset.key;
+      for (const b of seg.querySelectorAll('button')) b.setAttribute('aria-pressed', String(Number(b.dataset.v) === settings[key]));
+    }
+  }
+  for (const tile of tiles) {
+    tile.addEventListener('click', () => {
+      settings.prey = tile.dataset.prey;
+      writeStore('pfotenjagd.settings', settings);
+      syncMenu();
+      renderBackground();
+      resetPrey(true);
+    });
+  }
+  for (const seg of document.querySelectorAll('.seg')) {
+    seg.addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      settings[seg.dataset.key] = Number(b.dataset.v);
+      writeStore('pfotenjagd.settings', settings);
+      syncMenu();
+      if (seg.dataset.key === 'count') resetPrey(true);
+    });
+  }
+  document.getElementById('start').addEventListener('click', startGame);
+
+  function drawTileIcons() {
+    for (const tile of tiles) {
+      const c = tile.querySelector('canvas');
+      const size = 56, dpr = Math.min(2, window.devicePixelRatio || 1);
+      c.width = size * dpr;
+      c.height = size * dpr;
+      const x = c.getContext('2d');
+      x.setTransform(dpr, 0, 0, dpr, 0, 0);
+      x.translate(size / 2 + (tile.dataset.prey === 'mouse' ? 6 : 0), size / 2);
+      x.rotate(-0.45);
+      const r = { mouse: 12, fish: 17, laser: 7, bug: 14 }[tile.dataset.prey];
+      drawPreyShape(x, tile.dataset.prey, r, 0.3, false);
+    }
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  syncMenu();
+  showLastRound();
+  drawTileIcons();
+  resetPrey(true);
+  if (document.fonts) document.fonts.ready.then(drawTileIcons);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1494 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Brummer</title>
+<meta name="theme-color" content="#000000">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Sniglet:wght@400;800&display=swap">
+<style>
+/* Layout: schwarze Projektionsfläche (Schwarz = kein Licht), Menü als Panel in der Mitte mit Statistik darunter, Kalibrierung mit vier Eckgriffen. */
+:root {
+  --black: #000000;
+  --panel: rgba(14, 20, 34, 0.92);
+  --line: rgba(160, 185, 230, 0.18);
+  --ink: #eef2fa;
+  --muted: #9ba8c2;
+  --amber: #ffc84a;
+  --amber-ink: #241a03;
+  --sky: #6cb2ff;
+  --ok: #5fd68a;
+  --warn: #ff8a6a;
+  --display: "Sniglet", "Arial Rounded MT Bold", ui-rounded, system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--black);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+body.playing { cursor: none; }
+#floor {
+  position: fixed;
+  left: 0;
+  top: 0;
+  display: block;
+  transform-origin: 0 0;
+}
+
+/* ---------- Menü ---------- */
+#lobby {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  padding-block: 24px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.panel {
+  width: 100%;
+  max-width: 56rem;
+  box-sizing: border-box;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  padding: 30px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 17rem;
+  gap: 30px;
+}
+@media (max-width: 760px) { .panel { grid-template-columns: 1fr; } }
+.main { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.eyebrow {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sky);
+}
+h1 {
+  margin: 4px 0 0;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(2.6rem, 6vw, 3.6rem);
+  line-height: 1;
+  color: var(--amber);
+}
+.lede { margin: 6px 0 0; color: var(--muted); max-width: 46ch; }
+.steps { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 4px; max-width: 60ch; }
+.steps li::marker { color: var(--amber); font-weight: 700; }
+.options { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 480px) { .options { grid-template-columns: 1fr; } }
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+.seg { display: flex; border: 1.5px solid var(--line); border-radius: 12px; overflow: hidden; }
+.seg button { flex: 1 1 0; min-width: 0; padding: 7px 4px; border: 0; background: transparent; font-size: 0.88rem; white-space: nowrap; }
+.seg button + button { border-left: 1.5px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--sky); color: #06152b; font-weight: 700; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.start {
+  border: 0;
+  border-radius: 999px;
+  padding: 14px 30px;
+  background: var(--amber);
+  color: var(--amber-ink);
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 1.35rem;
+}
+.secondary {
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  padding: 12px 22px;
+  background: transparent;
+  font-weight: 700;
+}
+.keys { margin: 0; font-size: 0.84rem; color: var(--muted); }
+kbd {
+  font-family: var(--body);
+  font-size: 0.78rem;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  color: var(--ink);
+}
+
+.pair { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.qr {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 12px;
+  aspect-ratio: 1;
+  max-width: 100%;
+  display: grid;
+  place-items: center;
+}
+.qr canvas { width: 100%; height: auto; image-rendering: pixelated; }
+.code {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 1.9rem;
+  letter-spacing: 0.12em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.status { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+.status::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+.status[data-state="ok"]::before { background: var(--ok); }
+.status[data-state="warn"]::before { background: var(--warn); }
+.note { margin: 0; font-size: 0.82rem; color: var(--warn); }
+
+/* ---------- Kalibrierung ---------- */
+.handle {
+  position: fixed;
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  border-radius: 50%;
+  border: 3px solid var(--amber);
+  background: rgba(255, 200, 74, 0.25);
+  touch-action: none;
+  cursor: grab;
+  z-index: 5;
+}
+.handle:active { cursor: grabbing; }
+#calhelp {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(26rem, calc(100% - 32px));
+  box-sizing: border-box;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 4;
+}
+#calhelp p { margin: 0; color: var(--muted); }
+#calhelp strong { color: var(--ink); }
+.options .wide { grid-column: 1 / -1; }
+.slots { margin: 0; font-size: 0.85rem; color: var(--muted); }
+
+/* ---------- Statistik ---------- */
+.stats {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.stats-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 14px; }
+.stats-head h2 { margin: 0; font-family: var(--display); font-weight: 800; font-size: 1.3rem; }
+.totals { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.totals strong { color: var(--ink); }
+.link { margin-left: auto; padding: 4px; border: 0; background: none; color: var(--muted); font-size: 0.85rem; text-decoration: underline; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+th {
+  padding: 6px 12px 6px 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+td { padding: 7px 12px 7px 0; border-bottom: 1px solid rgba(160, 185, 230, 0.08); white-space: nowrap; }
+th.num, td.num { text-align: right; }
+tr.best td { color: var(--amber); }
+.empty { margin: 0; color: var(--muted); font-size: 0.9rem; }
+
+button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<canvas id="floor"></canvas>
+
+<main id="lobby">
+  <section class="panel" aria-labelledby="title">
+    <div class="main">
+      <header>
+        <p class="eyebrow">Pfotenjagd · Projektor</p>
+        <h1 id="title">Brummer</h1>
+        <p class="lede">Eine Fliege, Mücke, Motte, Maus oder ein Laserpunkt huscht über den Boden. Du steuerst mit dem Handy, deine Katze jagt.</p>
+      </header>
+      <ol class="steps">
+        <li>Handy ins selbe WLAN, QR-Code scannen. Ein zweites Handy steuert eine zweite Beute.</li>
+        <li><strong>Ecken anpassen</strong>, bis das Raster auf dem Boden rechtwinklig aussieht.</li>
+        <li><strong>Start</strong> drücken. Der Laptop geht in den Vollbildmodus.</li>
+      </ol>
+      <div class="options">
+        <div class="field wide">
+          <span class="label">Beute</span>
+          <div class="seg" data-key="prey">
+            <button type="button" id="prey-fly" data-v="fly">Fliege</button>
+            <button type="button" id="prey-mosquito" data-v="mosquito">Mücke</button>
+            <button type="button" id="prey-moth" data-v="moth">Motte</button>
+            <button type="button" id="prey-mouse" data-v="mouse">Maus</button>
+            <button type="button" id="prey-laser" data-v="laser">Laser</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Größe</span>
+          <div class="seg" data-key="size">
+            <button type="button" id="size-S" data-v="S">S</button>
+            <button type="button" id="size-M" data-v="M">M</button>
+            <button type="button" id="size-L" data-v="L">L</button>
+            <button type="button" id="size-XL" data-v="XL">XL</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Tempo</span>
+          <div class="seg" data-key="speed">
+            <button type="button" id="speed-slow" data-v="0.7">Gemütlich</button>
+            <button type="button" id="speed-normal" data-v="1">Normal</button>
+            <button type="button" id="speed-fast" data-v="1.4">Flink</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Beute gleichzeitig</span>
+          <div class="seg" data-key="count">
+            <button type="button" id="count-1" data-v="1">1</button>
+            <button type="button" id="count-2" data-v="2">2</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Spielzeit</span>
+          <div class="seg" data-key="minutes">
+            <button type="button" id="min-5" data-v="5">5′</button>
+            <button type="button" id="min-10" data-v="10">10′</button>
+            <button type="button" id="min-15" data-v="15">15′</button>
+            <button type="button" id="min-0" data-v="0" aria-label="Unbegrenzt">∞</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Ton</span>
+          <div class="seg" data-key="sound">
+            <button type="button" id="sound-off" data-v="false">Aus</button>
+            <button type="button" id="sound-on" data-v="true">An</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Autopilot, wenn niemand steuert</span>
+          <div class="seg" data-key="auto">
+            <button type="button" id="auto-off" data-v="false">Aus</button>
+            <button type="button" id="auto-on" data-v="true">An</button>
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="button" id="start" class="start">Start</button>
+        <button type="button" id="calibrate" class="secondary">Ecken anpassen</button>
+      </div>
+      <p class="keys">Am Laptop: Maus = Beute 1 steuern · <kbd>Leertaste</kbd> / <kbd>2</kbd> Beute 1 / 2 gefangen · <kbd>L</kbd> Landen · <kbd>B</kbd> Beute wechseln · <kbd>A</kbd> Autopilot · <kbd>Esc</kbd> Menü</p>
+    </div>
+
+    <aside class="pair" aria-label="Handy koppeln">
+      <span class="label">Handy als Fernbedienung</span>
+      <div class="qr"><canvas id="qr" width="1" height="1" aria-label="QR-Code zur Fernbedienung"></canvas></div>
+      <p class="code" id="code">······</p>
+      <p class="status" id="status" data-state="idle">Verbinde mit dem Kopplungsdienst …</p>
+      <p class="slots" id="slots" hidden></p>
+      <p class="note" id="note" hidden></p>
+    </aside>
+
+    <section class="stats" aria-labelledby="stats-title">
+      <div class="stats-head">
+        <h2 id="stats-title">Letzte Runden</h2>
+        <p class="totals" id="totals"></p>
+        <button type="button" class="link" id="clear-stats" hidden>Verlauf löschen</button>
+      </div>
+      <p class="empty" id="stats-empty">Noch keine Runde gespielt. Nach der ersten Runde stehen hier Beute, Dauer und Fänge.</p>
+      <div class="table-wrap" id="stats-table" hidden>
+        <table>
+          <thead><tr><th>Wann</th><th>Beute</th><th class="num">Dauer</th><th class="num">Fänge</th><th class="num">pro Minute</th></tr></thead>
+          <tbody id="stats-rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </section>
+</main>
+
+<div id="handles" hidden>
+  <div class="handle" data-i="0" aria-label="Ecke oben links"></div>
+  <div class="handle" data-i="1" aria-label="Ecke oben rechts"></div>
+  <div class="handle" data-i="2" aria-label="Ecke unten rechts"></div>
+  <div class="handle" data-i="3" aria-label="Ecke unten links"></div>
+</div>
+<div id="calhelp" hidden>
+  <p><strong>Ecken anpassen:</strong> Ziehe die vier gelben Griffe mit der Maus, bis das Raster auf dem Boden rechtwinklig ist und der Kreis rund aussieht. Du kannst die Fläche damit auch verkleinern, zum Beispiel weg von Möbeln.</p>
+  <div class="actions">
+    <button type="button" id="caldone" class="start">Fertig</button>
+    <button type="button" id="calreset" class="secondary">Zurücksetzen</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  const canvas = document.getElementById('floor');
+  const ctx = canvas.getContext('2d');
+  const lobby = document.getElementById('lobby');
+  const handlesBox = document.getElementById('handles');
+  const calHelp = document.getElementById('calhelp');
+  const statusEl = document.getElementById('status');
+  const slotsEl = document.getElementById('slots');
+  const noteEl = document.getElementById('note');
+
+  const TAU = Math.PI * 2;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const randi = n => Math.floor(Math.random() * n);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  const PEER_PREFIX = 'pfotenjagd-brummer-';
+  const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const SIZES = { S: 0.015, M: 0.022, L: 0.032, XL: 0.045 };
+  const SIZE_ORDER = ['S', 'M', 'L', 'XL'];
+  const INPUT_GAIN = 1.3;      // eine Wischbewegung über die ganze Handybreite = 1,3 × Projektionsbreite
+  const HUMAN_HOLD = 2.5;      // so lange nach der letzten Eingabe übernimmt der Autopilot nicht
+  const MAX_PHONES = 2;
+
+  // Verhalten je Beute. k/damp: Feder zum Ziel, wob: Zittern (Anteil der Größe), wobF: Zitterfrequenz,
+  // jink: Abstand und Stärke der kleinen Haken, land/leave: Wahrscheinlichkeiten im Autopiloten
+  const PREY = {
+    fly:      { name: 'Fliege', sizeK: 1,   k: 36, damp: 9,  wob: 1,   wobF: 1,   jink: [0.25, 1.1], jinkS: [0.2, 0.55], vmax: 2.2, flies: true,
+                land: 0.22, leave: 0.08, dist: [0.15, 0.55], ai: [0.6, 2],   rest: [1.5, 4.5] },
+    mosquito: { name: 'Mücke',  sizeK: 0.9, k: 14, damp: 5,  wob: 1.6, wobF: 0.5, jink: [0.6, 2],    jinkS: [0.05, 0.2], vmax: 1,   flies: true,
+                land: 0.15, leave: 0.08, dist: [0.1, 0.35],  ai: [1.2, 3],   rest: [2, 5] },
+    moth:     { name: 'Motte',  sizeK: 1.3, k: 18, damp: 6,  wob: 1.4, wobF: 1.7, jink: [0.12, 0.4], jinkS: [0.15, 0.4], vmax: 1.4, flies: true,
+                land: 0.1,  leave: 0.06, dist: [0.1, 0.4],   ai: [0.3, 1.2], rest: [2, 6] },
+    mouse:    { name: 'Maus',   sizeK: 1.5, k: 30, damp: 11, wob: 0,   wobF: 0,   jink: null,        jinkS: null,        vmax: 1.6, flies: false,
+                land: 0.35, leave: 0.12, dist: [0.2, 0.6],   ai: [0.8, 2.5], rest: [0.6, 2.5], wallHug: true },
+    laser:    { name: 'Laser',  sizeK: 0.5, k: 90, damp: 19, wob: 0.3, wobF: 3,   jink: [0.2, 0.8],  jinkS: [0.3, 0.9],  vmax: 3,   flies: false,
+                land: 0.2,  leave: 0.05, dist: [0.2, 0.7],   ai: [0.2, 1],   rest: [0.3, 1.5] },
+  };
+  const PREY_ORDER = ['fly', 'mosquito', 'moth', 'mouse', 'laser'];
+
+  function readStore(key) {
+    try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
+  }
+  function writeStore(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Speicher nicht verfügbar */ }
+  }
+
+  const settings = Object.assign({ prey: 'fly', size: 'M', speed: 1, count: 1, minutes: 10, sound: true, auto: true }, readStore('brummer.settings'));
+  if ('buzz' in settings) {
+    // ältere Einstellung: Geräusch Aus/Fliege/Mücke
+    settings.sound = settings.buzz !== 'off' && settings.buzz !== false;
+    if (settings.buzz === 'mosquito') settings.prey = 'mosquito';
+    delete settings.buzz;
+  }
+  if (!PREY[settings.prey]) settings.prey = 'fly';
+  if (!SIZES[settings.size]) settings.size = 'M';
+  if (![1, 2].includes(settings.count)) settings.count = 1;
+  if (![0, 5, 10, 15].includes(settings.minutes)) settings.minutes = 10;
+  const DEFAULT_CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]];
+  let corners = readStore('brummer.corners');
+  if (!Array.isArray(corners) || corners.length !== 4) corners = DEFAULT_CORNERS.map(p => p.slice());
+  let history = readStore('brummer.history');
+  if (!Array.isArray(history)) history = [];
+
+  let W = 0, H = 0, M = 0, DPR = 1;
+  let mode = 'lobby';
+  let round = null;
+  const P = () => PREY[settings.prey];
+  const now = () => performance.now() / 1000;
+
+  // ---------- Entzerrung (Homografie für den schrägen Projektor) ----------
+  function solve(A, b) {
+    const n = b.length;
+    for (let i = 0; i < n; i++) {
+      let p = i;
+      for (let r = i + 1; r < n; r++) if (Math.abs(A[r][i]) > Math.abs(A[p][i])) p = r;
+      [A[i], A[p]] = [A[p], A[i]];
+      [b[i], b[p]] = [b[p], b[i]];
+      for (let r = i + 1; r < n; r++) {
+        const f = A[r][i] / A[i][i];
+        for (let c = i; c < n; c++) A[r][c] -= f * A[i][c];
+        b[r] -= f * b[i];
+      }
+    }
+    const x = new Array(n);
+    for (let i = n - 1; i >= 0; i--) {
+      let s = b[i];
+      for (let c = i + 1; c < n; c++) s -= A[i][c] * x[c];
+      x[i] = s / A[i][i];
+    }
+    return x;
+  }
+  function homography(src, dst) {
+    const A = [], b = [];
+    for (let i = 0; i < 4; i++) {
+      const [x, y] = src[i], [u, v] = dst[i];
+      A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); b.push(u);
+      A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); b.push(v);
+    }
+    return [...solve(A, b), 1];
+  }
+  function applyWarp() {
+    const src = [[0, 0], [W, 0], [W, H], [0, H]];
+    const dst = corners.map(([fx, fy]) => [fx * W, fy * H]);
+    const h = homography(src, dst);
+    if (h.some(v => !Number.isFinite(v))) return;
+    canvas.style.transform = `matrix3d(${h[0]},${h[3]},0,${h[6]},${h[1]},${h[4]},0,${h[7]},0,0,1,0,${h[2]},${h[5]},0,${h[8]})`;
+    for (const el of handlesBox.children) {
+      const [fx, fy] = corners[el.dataset.i];
+      el.style.left = `${fx * window.innerWidth}px`;
+      el.style.top = `${fy * window.innerHeight}px`;
+    }
+  }
+
+  // ---------- Ton ----------
+  // Alle Geräusche werden live erzeugt: kostenlos, ohne Dateien und ohne Lizenzfragen.
+  // So können Tonhöhe, Lautstärke und Stereo-Richtung jederzeit der Bewegung folgen.
+  let audio = null, master = null, noiseBuf = null;
+  const voices = [];
+  function initAudio() {
+    if (audio) {
+      if (audio.state === 'suspended') audio.resume();
+      return;
+    }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audio = new AC();
+    master = audio.createGain();
+    master.gain.value = 0.9;
+    master.connect(audio.destination);
+    noiseBuf = audio.createBuffer(1, audio.sampleRate * 2, audio.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  const osc = (type, f = 100) => { const o = audio.createOscillator(); o.type = type; o.frequency.value = f; o.start(); return o; };
+  const amp = v => { const g = audio.createGain(); g.gain.value = v; return g; };
+  const filter = (type, f, q = 0.7) => { const b = audio.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; return b; };
+  function noiseVoice(type, f, q, rate, out) {
+    // gefiltertes Rauschen mit rhythmischem Pulsieren: Flügelflattern der Motte, Trippeln der Maus
+    const src = audio.createBufferSource();
+    src.buffer = noiseBuf;
+    src.loop = true;
+    src.start(0, Math.random() * 1.5);
+    const pulse = amp(0.5);
+    osc('sine', rate).connect(amp(0.5)).connect(pulse.gain);
+    const g = amp(0);
+    src.connect(filter(type, f, q)).connect(pulse).connect(g).connect(out);
+    return g;
+  }
+  function voiceFor(i) {
+    if (!audio) return null;
+    if (voices[i]) return voices[i];
+    const out = amp(1);
+    const pan = audio.createStereoPanner ? audio.createStereoPanner() : null;
+    if (pan) { out.connect(pan); pan.connect(master); } else out.connect(master);
+
+    // Stubenfliege: Flügelschlag um 190 Hz mit vielen Obertönen, durch Resonanzen gefärbt
+    const flyA = osc('sawtooth'), flyB = osc('square');
+    const flyMix = amp(1);
+    flyA.connect(flyMix);
+    flyB.connect(amp(0.35)).connect(flyMix);
+    const flyBody = amp(1);
+    for (const [f, q, g] of [[320, 4, 1], [1150, 5, 0.6], [2700, 6, 0.35]]) {
+      flyMix.connect(filter('bandpass', f, q)).connect(amp(g)).connect(flyBody);
+    }
+    flyMix.connect(filter('lowpass', 600)).connect(amp(0.25)).connect(flyBody);
+    const flutter = amp(0.8);
+    osc('sine', 23).connect(amp(0.25)).connect(flutter.gain);
+    osc('triangle', 7.1).connect(amp(0.15)).connect(flutter.gain);
+    const flyGain = amp(0);
+    flyBody.connect(flutter).connect(flyGain).connect(out);
+    const airGain = noiseVoice('bandpass', 1800, 0.8, 23, out);
+
+    // Mücke: hohes, dünnes Sirren um 600 Hz mit Vibrato
+    const mosA = osc('sawtooth'), mosB = osc('sawtooth');
+    const vib = amp(9);
+    osc('sine', 6.3).connect(vib);
+    vib.connect(mosA.frequency);
+    vib.connect(mosB.frequency);
+    const mosGain = amp(0);
+    const mosMix = amp(0.5);
+    mosA.connect(mosMix);
+    mosB.connect(mosMix);
+    mosMix.connect(filter('highpass', 350)).connect(filter('lowpass', 5000)).connect(mosGain).connect(out);
+
+    const mothGain = noiseVoice('lowpass', 650, 0.7, 15, out);
+    const scurryGain = noiseVoice('bandpass', 3200, 1.2, 21, out);
+
+    voices[i] = { out, pan, flyA, flyB, flyGain, airGain, mosA, mosB, mosGain, mothGain, scurryGain, wander: 0 };
+    return voices[i];
+  }
+  function updateVoice(c, speedNorm) {
+    const v = voiceFor(c.i);
+    if (!v) return;
+    const t = audio.currentTime;
+    const active = settings.sound && mode !== 'calibrate' && c.state === 'fly';
+    const kind = settings.prey;
+    const on = k => active && kind === k;
+    v.wander += (Math.random() - 0.5) * 2 - v.wander * 0.02;
+    const fFly = 185 + speedNorm * 70 + v.wander * 0.8 + Math.sin(t * 3.1 + c.i) * 4 + c.i * 14;
+    v.flyA.frequency.setTargetAtTime(fFly, t, 0.04);
+    v.flyB.frequency.setTargetAtTime(fFly * 1.004, t, 0.04);
+    v.flyGain.gain.setTargetAtTime(on('fly') ? 0.12 + speedNorm * 0.25 : 0, t, 0.04);
+    v.airGain.gain.setTargetAtTime(on('fly') ? 0.025 + speedNorm * 0.1 : 0, t, 0.05);
+    const fMos = 560 + speedNorm * 120 + v.wander * 1.5 + c.i * 40;
+    v.mosA.frequency.setTargetAtTime(fMos, t, 0.05);
+    v.mosB.frequency.setTargetAtTime(fMos * 1.006, t, 0.05);
+    const near = 1 + Math.sin(t * 0.7 + c.i * 2) * 0.3;
+    v.mosGain.gain.setTargetAtTime(on('mosquito') ? (0.06 + speedNorm * 0.1) * near : 0, t, 0.06);
+    v.mothGain.gain.setTargetAtTime(on('moth') ? 0.1 + speedNorm * 0.2 : 0, t, 0.06);
+    v.scurryGain.gain.setTargetAtTime(on('mouse') && speedNorm > 0.08 ? 0.05 + speedNorm * 0.25 : 0, t, 0.04);
+    if (v.pan) v.pan.pan.setTargetAtTime(clamp((c.x / W) * 2 - 1, -1, 1), t, 0.05);
+  }
+  function tone(f0, f1, f2, dur, vol, pan, delay = 0, type = 'sine') {
+    const t = audio.currentTime + delay;
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.linearRampToValueAtTime(f1, t + dur * 0.4);
+    o.frequency.linearRampToValueAtTime(f2, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    let out = master;
+    if (audio.createStereoPanner) {
+      const p = audio.createStereoPanner();
+      p.pan.value = clamp(pan, -1, 1);
+      p.connect(master);
+      out = p;
+    }
+    o.connect(g).connect(out);
+    o.start(t);
+    o.stop(t + dur + 0.05);
+  }
+  function squeak(c, vol = 1) {
+    if (!audio || !settings.sound) return;
+    const pan = (c.x / W) * 2 - 1;
+    tone(2400, 3600, 2700, 0.11, 0.2 * vol, pan);
+    tone(2600, 3900, 3000, 0.09, 0.16 * vol, pan, 0.14);
+  }
+  function catchSound(c) {
+    if (!audio) return;
+    const t = audio.currentTime;
+    const src = audio.createBufferSource();
+    src.buffer = noiseBuf;
+    const f = filter('lowpass', 900);
+    const g = audio.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.5, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+    src.connect(f).connect(g).connect(master);
+    src.start(t);
+    src.stop(t + 0.3);
+    tone(900, 1400, 1800, 0.2, 0.15, (c.x / W) * 2 - 1);
+    if (settings.prey === 'mouse') squeak(c, 1.2);
+  }
+
+  // ---------- Beute ----------
+  class Critter {
+    constructor(i) {
+      this.i = i;
+      this.x = this.y = -999;
+      this.vx = this.vy = 0;
+      this.angle = 0;
+      this.tx = this.ty = 0;
+      this.state = 'away';
+      this.timer = 0.6 + i * 1.5;
+      this.aiTimer = 0;
+      this.jinkTimer = 0.5;
+      this.lastInput = -99;
+      this.liftAcc = 0;
+      this.squeakTimer = rand(1, 3);
+      this.seed = rand(0, 10);
+    }
+    get r() { return SIZES[settings.size] * M * P().sizeK; }
+    get human() { return now() - this.lastInput < HUMAN_HOLD; }
+    get catchable() { return this.state === 'fly' || this.state === 'landed'; }
+  }
+  let critters = [];
+  function syncCritters() {
+    while (critters.length < settings.count) critters.push(new Critter(critters.length));
+    critters.length = settings.count;
+  }
+
+  function enterFromEdge(c) {
+    const pad = c.r * 3;
+    const e = randi(4);
+    c.x = e === 1 ? W + pad : e === 3 ? -pad : rand(0, W);
+    c.y = e === 0 ? -pad : e === 2 ? H + pad : rand(0, H);
+    c.vx = c.vy = 0;
+    c.tx = rand(W * 0.2, W * 0.8);
+    c.ty = rand(H * 0.2, H * 0.8);
+    c.angle = Math.atan2(c.ty - c.y, c.tx - c.x);
+    c.state = 'fly';
+    c.aiTimer = rand(1, 2);
+  }
+  function takeOff(c) {
+    c.state = 'fly';
+    if (P().flies) {
+      const a = rand(0, TAU);
+      c.vx = Math.cos(a) * M * 0.4;
+      c.vy = Math.sin(a) * M * 0.4;
+    }
+    c.aiTimer = 0;
+  }
+  function toggleLand(c, byHuman) {
+    if (c.state === 'fly') {
+      c.state = 'landed';
+      c.liftAcc = 0;
+      // vom Menschen gestoppt: bleibt sitzen, bis jemand sie aufscheucht (der Autopilot wartet 12 s)
+      c.timer = byHuman ? 12 : rand(...P().rest);
+      if (byHuman) c.lastInput = now();
+      c.tx = c.x;
+      c.ty = c.y;
+    } else if (c.state === 'landed') {
+      takeOff(c);
+      c.lastInput = now();
+    }
+    sendState();
+  }
+  function steer(c, px, py) {
+    if (!c || !c.catchable) return;
+    c.lastInput = now();
+    if (c.state === 'landed') {
+      // kleines Zittern von Maus oder Finger scheucht sie noch nicht auf
+      c.liftAcc += Math.hypot(px, py);
+      if (c.liftAcc < c.r * 1.5) return;
+      takeOff(c);
+      sendState();
+    }
+    const m = -c.r * 1.2; // ein kleines Stück über den Rand hinaus erlaubt: die Beute kann kurz verschwinden
+    c.tx = clamp(c.tx + px, m, W - m);
+    c.ty = clamp(c.ty + py, m, H - m);
+  }
+  function catchCritter(c) {
+    if (!c || !c.catchable) return;
+    c.state = 'caught';
+    c.timer = 0.6;
+    if (round) round.catches++;
+    burst(c.x, c.y);
+    catchSound(c);
+    broadcast({ t: 'caught', critter: c.i });
+    sendState();
+  }
+  function aiDecide(c) {
+    const p = P();
+    const m = c.r * 2;
+    const roll = Math.random();
+    if (roll < p.land) {
+      toggleLand(c, false);
+    } else if (roll < p.land + p.leave) {
+      const pad = c.r * 5;
+      const d = [c.y, W - c.x, H - c.y, c.x];
+      const e = d.indexOf(Math.min(...d));
+      c.tx = e === 1 ? W + pad : e === 3 ? -pad : c.x;
+      c.ty = e === 0 ? -pad : e === 2 ? H + pad : c.y;
+      c.aiTimer = 4;
+    } else if (p.wallHug && Math.random() < 0.6) {
+      // Mäuse flitzen gern an den Wänden entlang
+      const e = randi(4);
+      c.tx = e === 1 ? W - m : e === 3 ? m : rand(m, W - m);
+      c.ty = e === 0 ? m : e === 2 ? H - m : rand(m, H - m);
+      c.aiTimer = rand(...p.ai);
+    } else {
+      const dist = M * rand(...p.dist), a = rand(0, TAU);
+      c.tx = clamp(c.x + Math.cos(a) * dist, m, W - m);
+      c.ty = clamp(c.y + Math.sin(a) * dist, m, H - m);
+      c.aiTimer = rand(...p.ai);
+    }
+  }
+
+  function updateCritter(c, dt, t) {
+    const p = P();
+    const r = c.r;
+    const auto = settings.auto && !c.human && mode !== 'ending';
+    switch (c.state) {
+      case 'away':
+        c.timer -= dt;
+        if (c.timer <= 0 && mode !== 'ending') enterFromEdge(c);
+        break;
+      case 'caught':
+        c.timer -= dt;
+        if (c.timer <= 0) {
+          c.state = 'away';
+          c.timer = rand(1.2, 2.5);
+        }
+        break;
+      case 'landed': {
+        const k = Math.exp(-18 * dt);
+        c.vx *= k; c.vy *= k;
+        c.x += c.vx * dt; c.y += c.vy * dt;
+        if (Math.random() < dt * 0.7) c.angle += rand(-0.6, 0.6); // putzt sich, schnuppert, dreht sich ein wenig
+        if (auto) {
+          c.timer -= dt;
+          if (c.timer <= 0) { takeOff(c); sendState(); }
+        }
+        break;
+      }
+      case 'fly': {
+        if (auto) {
+          c.aiTimer -= dt;
+          if (c.aiTimer <= 0) aiDecide(c);
+          if (c.state !== 'fly') break;
+        }
+        const sp = settings.speed;
+        const wob = r * p.wob * (c.human ? 0.7 : 1), f = p.wobF;
+        const wx = Math.sin(t * 7.3 * f + c.seed) * wob + Math.sin(t * 12.7 * f) * wob * 0.4;
+        const wy = Math.cos(t * 6.1 * f + c.seed) * wob + Math.sin(t * 15.3 * f + 1) * wob * 0.4;
+        if (p.jink) {
+          c.jinkTimer -= dt;
+          if (c.jinkTimer <= 0) {
+            const a = rand(0, TAU), j = M * rand(...p.jinkS) * sp;
+            c.vx += Math.cos(a) * j;
+            c.vy += Math.sin(a) * j;
+            c.jinkTimer = rand(...p.jink) / sp;
+          }
+        }
+        const k = p.k * sp, damp = p.damp * Math.sqrt(sp);
+        c.vx += ((c.tx + wx - c.x) * k - c.vx * damp) * dt;
+        c.vy += ((c.ty + wy - c.y) * k - c.vy * damp) * dt;
+        const v = Math.hypot(c.vx, c.vy), vmax = M * p.vmax * sp;
+        if (v > vmax) { c.vx *= vmax / v; c.vy *= vmax / v; }
+        c.x += c.vx * dt;
+        c.y += c.vy * dt;
+        if (v > r * 2) {
+          let diff = Math.atan2(c.vy, c.vx) - c.angle;
+          diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+          c.angle += diff * Math.min(1, dt * 12);
+        }
+        const out = c.x < -r * 4 || c.x > W + r * 4 || c.y < -r * 4 || c.y > H + r * 4;
+        if (out && (auto || mode === 'ending')) {
+          c.state = 'away';
+          c.timer = rand(1.5, 3.5);
+        }
+        if (settings.prey === 'mouse') {
+          c.squeakTimer -= dt;
+          if (c.squeakTimer <= 0) { squeak(c, 0.5); c.squeakTimer = rand(2, 6); }
+        }
+        break;
+      }
+    }
+    const speedNorm = c.state === 'fly' ? clamp(Math.hypot(c.vx, c.vy) / (M * 1.5), 0, 1) : 0;
+    updateVoice(c, speedNorm);
+  }
+
+  // ---------- Zeichnen ----------
+  function ellipse(c, x, y, rx, ry, rot = 0) {
+    c.beginPath();
+    c.ellipse(x, y, rx, ry, rot, 0, TAU);
+  }
+  function wing(c, R, side, spread, alpha, len, wid, ax) {
+    c.save();
+    c.translate(R * ax, side * R * 0.14);
+    c.rotate(Math.PI - side * spread);
+    c.globalAlpha *= alpha;
+    c.fillStyle = 'rgba(190,222,255,0.55)';
+    c.strokeStyle = 'rgba(235,245,255,0.8)';
+    c.lineWidth = Math.max(1, R * 0.03);
+    ellipse(c, R * len * 0.9, 0, R * len, R * wid);
+    c.fill();
+    c.stroke();
+    c.restore();
+  }
+  function blurWings(c, R, t, flying, len, wid, ax, rate) {
+    for (const side of [-1, 1]) {
+      if (flying) {
+        const f = Math.sin(t * rate + (side > 0 ? 0 : 0.5));
+        for (const sp of [0.45, 0.9, 1.35]) wing(c, R, side, sp + f * 0.2, 0.32 + f * 0.1, len, wid, ax);
+      } else {
+        wing(c, R, side, 0.16, 0.9, len, wid, ax);
+      }
+    }
+  }
+  function legs(c, R, sets, color, width) {
+    c.strokeStyle = color;
+    c.lineWidth = Math.max(1, R * width);
+    c.lineCap = 'round';
+    for (const side of [-1, 1]) {
+      for (const [ax, kx, ky, ex, ey] of sets) {
+        c.beginPath();
+        c.moveTo(ax * R, side * R * 0.12);
+        c.quadraticCurveTo(kx * R, side * ky * R, ex * R, side * ey * R);
+        c.stroke();
+      }
+    }
+  }
+
+  function drawFly(c, R, t, flying) {
+    if (!flying) legs(c, R, [[0.25, 0.4, 0.35, 0.55, 0.5], [0.12, 0.12, 0.45, 0.1, 0.62], [0, -0.2, 0.4, -0.35, 0.55]], '#d9d2c2', 0.05);
+    const g = c.createLinearGradient(0, -R * 0.34, 0, R * 0.34);
+    g.addColorStop(0, '#a88a45');
+    g.addColorStop(0.5, '#f0e2ab');
+    g.addColorStop(1, '#a88a45');
+    c.fillStyle = g;
+    ellipse(c, -R * 0.42, 0, R * 0.55, R * 0.34); c.fill();
+    c.strokeStyle = 'rgba(70,45,10,0.35)';
+    c.lineWidth = Math.max(1, R * 0.04);
+    for (const x of [-0.25, -0.5, -0.75]) {
+      c.beginPath();
+      c.ellipse(x * R, 0, R * 0.08, R * 0.3, 0, -Math.PI / 2, Math.PI / 2);
+      c.stroke();
+    }
+    c.fillStyle = '#d4cec0';
+    ellipse(c, R * 0.12, 0, R * 0.32, R * 0.3); c.fill();
+    c.fillStyle = 'rgba(40,40,40,0.3)';
+    for (const side of [-1, 1]) { ellipse(c, R * 0.12, side * R * 0.1, R * 0.24, R * 0.035); c.fill(); }
+    c.fillStyle = '#bdb6a6';
+    ellipse(c, R * 0.48, 0, R * 0.17, R * 0.25); c.fill();
+    for (const side of [-1, 1]) {
+      c.fillStyle = '#e0563f';
+      ellipse(c, R * 0.5, side * R * 0.17, R * 0.13, R * 0.11); c.fill();
+      c.fillStyle = 'rgba(255,255,255,0.6)';
+      ellipse(c, R * 0.53, side * R * 0.15, R * 0.035, R * 0.03); c.fill();
+    }
+    blurWings(c, R, t, flying, 0.62, 0.24, 0.1, 95);
+  }
+
+  function drawMosquito(c, R, t, flying) {
+    // lange, dünne Beine: im Flug nach hinten gezogen, gelandet weit gespreizt
+    const sets = flying
+      ? [[0.2, 0.1, 0.5, -0.4, 0.75], [0.1, -0.3, 0.45, -1.0, 0.6], [0, -0.6, 0.3, -1.5, 0.35]]
+      : [[0.2, 0.7, 0.6, 1.2, 0.9], [0.1, 0.1, 0.8, 0.0, 1.25], [0, -0.6, 0.7, -1.2, 0.9]];
+    legs(c, R, sets, 'rgba(225,218,200,0.85)', 0.035);
+    c.fillStyle = '#d6cfbf';
+    ellipse(c, -R * 0.62, 0, R * 0.62, R * 0.12); c.fill();
+    c.strokeStyle = 'rgba(60,50,40,0.5)';
+    c.lineWidth = Math.max(1, R * 0.035);
+    for (let i = 1; i < 6; i++) {
+      c.beginPath();
+      c.moveTo(-R * 0.18 * i, -R * 0.1);
+      c.lineTo(-R * 0.18 * i, R * 0.1);
+      c.stroke();
+    }
+    c.fillStyle = '#e4ddce';
+    ellipse(c, R * 0.08, 0, R * 0.2, R * 0.16); c.fill();
+    c.fillStyle = '#cfc7b5';
+    ellipse(c, R * 0.34, 0, R * 0.1, R * 0.1); c.fill();
+    c.strokeStyle = 'rgba(225,218,200,0.9)';
+    c.lineWidth = Math.max(1, R * 0.03);
+    c.beginPath(); c.moveTo(R * 0.42, 0); c.lineTo(R * 0.95, 0); c.stroke(); // Rüssel
+    for (const side of [-1, 1]) {
+      c.beginPath(); c.moveTo(R * 0.4, side * R * 0.05); c.lineTo(R * 0.75, side * R * 0.22); c.stroke();
+    }
+    blurWings(c, R, t, flying, 0.62, 0.13, 0.05, 140);
+  }
+
+  function drawMoth(c, R, t, flying) {
+    // Draufsicht: im Flug klappen die Flügel auf und zu, gelandet liegen sie als Dreieck flach
+    const open = flying ? 0.3 + 0.7 * Math.abs(Math.sin(t * 13)) : 1;
+    for (const side of [-1, 1]) {
+      c.save();
+      c.scale(1, side * open);
+      c.fillStyle = '#e4d6b4';
+      c.beginPath();
+      c.moveTo(R * 0.3, R * 0.05);
+      c.quadraticCurveTo(R * 0.35, R * 0.9, -R * 0.25, R * 1.05);
+      c.quadraticCurveTo(-R * 0.55, R * 0.7, -R * 0.35, R * 0.1);
+      c.closePath();
+      c.fill();
+      c.fillStyle = '#d2c194';
+      c.beginPath();
+      c.moveTo(-R * 0.2, R * 0.08);
+      c.quadraticCurveTo(-R * 0.55, R * 0.75, -R * 0.75, R * 0.55);
+      c.quadraticCurveTo(-R * 0.75, R * 0.2, -R * 0.45, R * 0.06);
+      c.closePath();
+      c.fill();
+      c.fillStyle = 'rgba(120,95,55,0.45)';
+      ellipse(c, -R * 0.02, R * 0.55, R * 0.1, R * 0.08); c.fill();
+      ellipse(c, -R * 0.45, R * 0.38, R * 0.07, R * 0.06); c.fill();
+      c.restore();
+    }
+    c.fillStyle = '#f0e6cc';
+    ellipse(c, -R * 0.15, 0, R * 0.5, R * 0.14); c.fill();
+    c.fillStyle = '#e8dcbc';
+    ellipse(c, R * 0.38, 0, R * 0.12, R * 0.12); c.fill();
+    c.strokeStyle = 'rgba(230,220,195,0.9)';
+    c.lineWidth = Math.max(1, R * 0.035);
+    for (const side of [-1, 1]) {
+      c.beginPath();
+      c.moveTo(R * 0.45, side * R * 0.05);
+      c.quadraticCurveTo(R * 0.75, side * R * 0.1, R * 0.85, side * R * 0.38);
+      c.stroke();
+    }
+  }
+
+  function drawMouse(c, r, ph, moving) {
+    const wag = Math.sin(ph * (moving ? 14 : 3)) * r * (moving ? 0.5 : 0.25);
+    c.lineCap = 'round';
+    c.strokeStyle = '#c99a9a';
+    c.lineWidth = r * 0.11;
+    c.beginPath();
+    c.moveTo(-r * 0.95, 0);
+    c.bezierCurveTo(-r * 1.6, wag, -r * 2.1, -wag, -r * 2.8, wag * 0.6);
+    c.stroke();
+    if (moving) {
+      const s = Math.sin(ph * 22) * r * 0.15;
+      c.fillStyle = '#e8b4b4';
+      for (const side of [-1, 1]) {
+        ellipse(c, r * 0.45 + s * side, side * r * 0.56, r * 0.13, r * 0.08); c.fill();
+        ellipse(c, -r * 0.5 - s * side, side * r * 0.56, r * 0.15, r * 0.09); c.fill();
+      }
+    }
+    const g = c.createRadialGradient(-r * 0.1, -r * 0.25, r * 0.1, 0, 0, r * 1.15);
+    g.addColorStop(0, '#dcd6cd');
+    g.addColorStop(1, '#8d867c');
+    c.fillStyle = g;
+    ellipse(c, 0, 0, r * 1.05, r * 0.62); c.fill();
+    c.fillStyle = '#c6bfb5';
+    ellipse(c, r * 0.85, 0, r * 0.52, r * 0.42); c.fill();
+    for (const side of [-1, 1]) {
+      c.fillStyle = '#a49d93';
+      ellipse(c, r * 0.6, side * r * 0.4, r * 0.27, r * 0.27); c.fill();
+      c.fillStyle = '#eaafb2';
+      ellipse(c, r * 0.62, side * r * 0.41, r * 0.17, r * 0.17); c.fill();
+    }
+    for (const side of [-1, 1]) {
+      c.fillStyle = '#14100c';
+      ellipse(c, r * 1.05, side * r * 0.17, r * 0.068, r * 0.068); c.fill();
+    }
+    c.fillStyle = '#f08a9a';
+    ellipse(c, r * 1.36, 0, r * 0.085, r * 0.085); c.fill();
+    c.strokeStyle = 'rgba(255,255,255,0.5)';
+    c.lineWidth = Math.max(1, r * 0.025);
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < 3; i++) {
+        c.beginPath();
+        c.moveTo(r * 1.27, side * r * 0.07);
+        c.lineTo(r * 1.72, side * r * (0.12 + i * 0.16));
+        c.stroke();
+      }
+    }
+  }
+
+  function drawLaser(c, r, ph) {
+    const flicker = 1 + Math.sin(ph * 41) * 0.07 + Math.sin(ph * 17) * 0.05;
+    const R = r * 3.2 * flicker;
+    const g = c.createRadialGradient(0, 0, 0, 0, 0, R);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.12, 'rgba(255,90,100,1)');
+    g.addColorStop(0.3, 'rgba(255,30,50,0.6)');
+    g.addColorStop(1, 'rgba(255,0,40,0)');
+    c.fillStyle = g;
+    ellipse(c, 0, 0, R, R); c.fill();
+  }
+
+  function drawCritter(c, cr, t) {
+    if (cr.state === 'away') return;
+    const R = cr.r;
+    let s = 1, a = 1;
+    if (cr.state === 'caught') {
+      const p = 1 - cr.timer / 0.6;
+      s = 1 + p * 0.8;
+      a = 1 - p;
+    }
+    const flying = cr.state === 'fly';
+    const type = settings.prey;
+    c.save();
+    c.globalAlpha = a;
+    c.translate(cr.x, cr.y);
+    if (type !== 'laser') {
+      // leichter Lichthof, damit die Beute auf dem Boden besser zu sehen ist
+      const glow = c.createRadialGradient(0, 0, 0, 0, 0, R * 2.4);
+      glow.addColorStop(0, 'rgba(200,225,255,0.2)');
+      glow.addColorStop(1, 'rgba(200,225,255,0)');
+      c.fillStyle = glow;
+      ellipse(c, 0, 0, R * 2.4, R * 2.4); c.fill();
+    }
+    c.rotate(cr.angle);
+    c.scale(s, s);
+    const moving = Math.hypot(cr.vx, cr.vy) > R * 0.4;
+    if (type === 'fly') drawFly(c, R, t, flying);
+    else if (type === 'mosquito') drawMosquito(c, R, t, flying);
+    else if (type === 'moth') drawMoth(c, R, t, flying);
+    else if (type === 'mouse') drawMouse(c, R, t + cr.seed, flying && moving);
+    else drawLaser(c, R, t + cr.seed);
+    c.restore();
+  }
+
+  // ---------- Effekte ----------
+  let sparks = [];
+  function burst(x, y) {
+    const colors = ['#ffc84a', '#6cb2ff', '#ffffff', '#ffe7a8'];
+    for (let i = 0; i < 30; i++) {
+      const a = rand(0, TAU), sp = rand(0.2, 0.8) * M;
+      sparks.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: rand(0.5, 0.9), max: 0.9, color: colors[i % colors.length], size: rand(0.005, 0.012) * M });
+    }
+    sparks.push({ ring: true, x, y, life: 0.7, max: 0.7, size: M * 0.18, color: '#ffc84a' });
+  }
+  function updateSparks(dt) {
+    for (const s of sparks) {
+      s.life -= dt;
+      if (!s.ring) {
+        s.x += s.vx * dt; s.y += s.vy * dt;
+        s.vx *= 1 - dt * 2.5; s.vy *= 1 - dt * 2.5;
+      }
+    }
+    sparks = sparks.filter(s => s.life > 0);
+  }
+  function drawSparks(c) {
+    for (const s of sparks) {
+      const p = s.life / s.max;
+      if (s.ring) {
+        c.globalAlpha = p * 0.8;
+        c.strokeStyle = s.color;
+        c.lineWidth = Math.max(2, M * 0.008 * p);
+        ellipse(c, s.x, s.y, s.size * (1.3 - p), s.size * (1.3 - p)); c.stroke();
+      } else {
+        c.globalAlpha = Math.min(1, p * 1.5);
+        c.fillStyle = s.color;
+        ellipse(c, s.x, s.y, s.size, s.size); c.fill();
+      }
+    }
+    c.globalAlpha = 1;
+  }
+  function drawGrid(c) {
+    c.strokeStyle = 'rgba(108,178,255,0.55)';
+    c.lineWidth = 2;
+    for (let i = 1; i < 8; i++) {
+      c.beginPath(); c.moveTo((W / 8) * i, 0); c.lineTo((W / 8) * i, H); c.stroke();
+      c.beginPath(); c.moveTo(0, (H / 8) * i); c.lineTo(W, (H / 8) * i); c.stroke();
+    }
+    c.strokeStyle = '#ffc84a';
+    c.lineWidth = 6;
+    c.strokeRect(3, 3, W - 6, H - 6);
+    ellipse(c, W / 2, H / 2, M * 0.3, M * 0.3); c.stroke();
+  }
+
+  // ---------- Runden und Statistik ----------
+  function formatTime(sec) {
+    sec = Math.max(0, Math.round(sec));
+    return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+  }
+  function timeLeft() {
+    if (!round || !settings.minutes) return null;
+    return Math.max(0, settings.minutes * 60 - round.elapsed);
+  }
+  function startRound() {
+    round = { start: Date.now(), elapsed: 0, catches: 0, preys: [settings.prey], count: settings.count };
+  }
+  function endRound() {
+    if (!round) return null;
+    const r = round;
+    round = null;
+    if (r.elapsed < 5 && !r.catches) return null; // versehentlich gestartet
+    const entry = { t: r.start, preys: r.preys, secs: Math.round(r.elapsed), catches: r.catches, count: r.count };
+    history.unshift(entry);
+    history = history.slice(0, 30);
+    writeStore('brummer.history', history);
+    renderStats();
+    return entry;
+  }
+  function renderStats() {
+    const rows = document.getElementById('stats-rows');
+    const has = history.length > 0;
+    document.getElementById('stats-empty').hidden = has;
+    document.getElementById('stats-table').hidden = !has;
+    document.getElementById('clear-stats').hidden = !has;
+    const totalsEl = document.getElementById('totals');
+    rows.textContent = '';
+    if (!has) { totalsEl.textContent = ''; return; }
+    const total = history.reduce((s, h) => s + h.catches, 0);
+    const secs = history.reduce((s, h) => s + h.secs, 0);
+    const best = Math.max(...history.map(h => h.catches));
+    totalsEl.innerHTML = `<strong>${total}</strong> ${total === 1 ? 'Fang' : 'Fänge'} in <strong>${history.length}</strong> ${history.length === 1 ? 'Runde' : 'Runden'} · ${formatTime(secs)} gespielt · Rekord <strong>${best}</strong>`;
+    let bestMarked = false;
+    for (const h of history.slice(0, 8)) {
+      const tr = document.createElement('tr');
+      if (h.catches === best && best > 0 && !bestMarked) { tr.className = 'best'; bestMarked = true; }
+      const when = new Date(h.t).toLocaleString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      const perMin = h.secs > 0 ? (h.catches / (h.secs / 60)).toFixed(1).replace('.', ',') : '–';
+      const kinds = (h.preys || [h.prey]).map(k => (PREY[k] ? PREY[k].name : k));
+      const name = (kinds.length > 2 ? 'Gemischt' : kinds.join(' + ')) + (h.count > 1 ? ' ×2' : '');
+      for (const [text, cls] of [[when], [name], [formatTime(h.secs), 'num'], [String(h.catches), 'num'], [perMin, 'num']]) {
+        const td = document.createElement('td');
+        td.textContent = text;
+        if (cls) td.className = cls;
+        tr.appendChild(td);
+      }
+      rows.appendChild(tr);
+    }
+  }
+  let clearArmed = false;
+  document.getElementById('clear-stats').addEventListener('click', e => {
+    // zweistufig statt Dialog: erster Klick fragt nach, zweiter löscht
+    if (!clearArmed) {
+      clearArmed = true;
+      e.target.textContent = 'Wirklich löschen?';
+      setTimeout(() => { clearArmed = false; e.target.textContent = 'Verlauf löschen'; }, 4000);
+      return;
+    }
+    history = [];
+    writeStore('brummer.history', history);
+    clearArmed = false;
+    e.target.textContent = 'Verlauf löschen';
+    renderStats();
+  });
+
+  // ---------- Verbindung zu den Handys (PeerJS / WebRTC) ----------
+  let peer = null;
+  const conns = new Array(MAX_PHONES).fill(null);
+  let code = readStore('brummer.code');
+  if (typeof code !== 'string' || !/^[A-Z2-9]{6}$/.test(code)) code = newCode();
+  function newCode() {
+    let s = '';
+    for (let i = 0; i < 6; i++) s += CODE_CHARS[randi(CODE_CHARS.length)];
+    return s;
+  }
+  function setStatus(text, state) {
+    statusEl.textContent = text;
+    statusEl.dataset.state = state;
+  }
+  function updateConnStatus() {
+    const n = conns.filter(c => c && c.open).length;
+    if (n === 0) {
+      setStatus('Bereit. QR-Code mit dem Handy scannen.', 'idle');
+      slotsEl.hidden = true;
+    } else {
+      setStatus(n === 1 ? 'Ein Handy verbunden' : 'Zwei Handys verbunden', 'ok');
+      slotsEl.hidden = false;
+      slotsEl.textContent = n < MAX_PHONES ? 'Ein zweites Handy kann denselben QR-Code scannen.' : 'Mehr als zwei Handys gehen nicht.';
+    }
+  }
+  function controllerUrl() {
+    const u = new URL('handy.html', location.href);
+    u.search = '';
+    u.hash = '';
+    u.searchParams.set('code', code);
+    return u.href;
+  }
+  function renderQr() {
+    document.getElementById('code').textContent = code;
+    const qrCanvas = document.getElementById('qr');
+    if (!window.qrcode) return;
+    const qr = window.qrcode(0, 'M');
+    qr.addData(controllerUrl());
+    qr.make();
+    const n = qr.getModuleCount(), cell = 8;
+    qrCanvas.width = qrCanvas.height = n * cell;
+    const q = qrCanvas.getContext('2d');
+    q.fillStyle = '#ffffff';
+    q.fillRect(0, 0, n * cell, n * cell);
+    q.fillStyle = '#000000';
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) q.fillRect(c * cell, r * cell, cell, cell);
+  }
+  function checkOrigin() {
+    const local = location.protocol === 'file:' || ['localhost', '127.0.0.1', '::1', '[::1]'].includes(location.hostname);
+    if (local) {
+      noteEl.hidden = false;
+      noteEl.textContent = 'Diese Seite ist nur lokal geöffnet. Das Handy kann die Adresse im QR-Code so nicht erreichen. Öffne die Seite über GitHub Pages oder über die Netzwerkadresse des Laptops.';
+    }
+  }
+  function openPeer() {
+    if (!window.Peer) {
+      setStatus('Kopplung nicht verfügbar. Steuern geht trotzdem mit der Maus.', 'warn');
+      return;
+    }
+    peer = new window.Peer(PEER_PREFIX + code.toLowerCase(), { debug: 0 });
+    peer.on('open', () => {
+      writeStore('brummer.code', code);
+      renderQr();
+      updateConnStatus();
+    });
+    peer.on('connection', c => {
+      c.on('open', () => {
+        let slot = conns.findIndex(x => !x || !x.open);
+        if (slot < 0) {
+          try { c.send({ t: 'full' }); } catch { /* egal */ }
+          setTimeout(() => c.close(), 300);
+          return;
+        }
+        conns[slot] = c;
+        c.on('data', msg => onMessage(msg, slot));
+        c.on('close', () => {
+          if (conns[slot] !== c) return;
+          conns[slot] = null;
+          updateConnStatus();
+        });
+        updateConnStatus();
+        sendState();
+      });
+    });
+    peer.on('disconnected', () => {
+      setTimeout(() => { if (peer && !peer.destroyed && peer.disconnected) peer.reconnect(); }, 2000);
+    });
+    peer.on('error', e => {
+      if (e.type === 'unavailable-id') {
+        code = newCode();
+        peer.destroy();
+        openPeer();
+      } else if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(e.type)) {
+        setStatus('Keine Verbindung zum Kopplungsdienst. Internet prüfen, es wird erneut versucht.', 'warn');
+      }
+    });
+  }
+  const critterFor = slot => critters[Math.min(slot, critters.length - 1)];
+  function sendTo(slot, msg) {
+    const c = conns[slot];
+    if (c && c.open) {
+      try { c.send(msg); } catch { /* Verbindung gerade weg */ }
+    }
+  }
+  function broadcast(msg) {
+    for (let i = 0; i < MAX_PHONES; i++) sendTo(i, msg);
+  }
+  function sendState() {
+    const p = P();
+    for (let slot = 0; slot < MAX_PHONES; slot++) {
+      if (!conns[slot]) continue;
+      const cr = critterFor(slot);
+      sendTo(slot, {
+        t: 'state',
+        mode: mode === 'ending' ? 'play' : mode,
+        critter: cr ? cr.i : 0,
+        count: settings.count,
+        landed: !!cr && cr.state === 'landed',
+        prey: settings.prey,
+        preyName: p.name,
+        flies: p.flies,
+        sound: settings.sound,
+        auto: settings.auto,
+        size: settings.size,
+        catches: round ? round.catches : 0,
+        timeLeft: timeLeft(),
+      });
+    }
+  }
+  function onMessage(msg, slot) {
+    if (!msg || typeof msg !== 'object') return;
+    const cr = critterFor(slot);
+    switch (msg.t) {
+      case 'move':
+        if (Number.isFinite(msg.dx) && Number.isFinite(msg.dy)) {
+          steer(cr, clamp(msg.dx, -2, 2) * W * INPUT_GAIN, clamp(msg.dy, -2, 2) * W * INPUT_GAIN);
+        }
+        break;
+      case 'catch': catchCritter(cr); break;
+      case 'land': if (cr) toggleLand(cr, true); break;
+      case 'auto': setSetting('auto', !settings.auto); break;
+      case 'sound': case 'buzz': setSetting('sound', !settings.sound); break;
+      case 'prey': setSetting('prey', PREY_ORDER[(PREY_ORDER.indexOf(settings.prey) + 1) % PREY_ORDER.length]); break;
+      case 'size': {
+        const i = clamp(SIZE_ORDER.indexOf(settings.size) + (msg.step > 0 ? 1 : -1), 0, SIZE_ORDER.length - 1);
+        setSetting('size', SIZE_ORDER[i]);
+        break;
+      }
+      case 'start': if (mode === 'lobby') startPlay(); break;
+    }
+  }
+
+  // ---------- Modi ----------
+  function setSetting(key, value) {
+    settings[key] = value;
+    writeStore('brummer.settings', settings);
+    if (key === 'count') syncCritters();
+    if (key === 'prey' && round && !round.preys.includes(value)) round.preys.push(value);
+    if (key === 'count' && round) round.count = Math.max(round.count, value);
+    syncMenu();
+    sendState();
+  }
+  function startPlay() {
+    initAudio();
+    mode = 'play';
+    startRound();
+    lobby.hidden = true;
+    document.body.classList.add('playing');
+    const el = document.documentElement;
+    if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().catch(() => {});
+    if (canvas.requestPointerLock) {
+      try {
+        const p = canvas.requestPointerLock();
+        if (p && p.catch) p.catch(() => {});
+      } catch { /* optional */ }
+    }
+    requestWakeLock();
+    sendState();
+  }
+  let endingTimer = 0;
+  function finishByTime() {
+    // Spielzeit um: die Beute fliegt davon, dann erscheint das Menü mit der Statistik
+    mode = 'ending';
+    endingTimer = 3;
+    for (const c of critters) {
+      if (!c.catchable) continue;
+      if (c.state === 'landed') takeOff(c);
+      const pad = c.r * 6;
+      const d = [c.y, W - c.x, H - c.y, c.x];
+      const e = d.indexOf(Math.min(...d));
+      c.tx = e === 1 ? W + pad : e === 3 ? -pad : c.x;
+      c.ty = e === 0 ? -pad : e === 2 ? H + pad : c.y;
+    }
+  }
+  function showLobby() {
+    const entry = endRound();
+    if (entry) broadcast({ t: 'roundEnd', catches: entry.catches, secs: entry.secs });
+    mode = 'lobby';
+    lobby.hidden = false;
+    handlesBox.hidden = true;
+    calHelp.hidden = true;
+    document.body.classList.remove('playing');
+    if (document.pointerLockElement) document.exitPointerLock();
+    for (const c of critters) if (c.state === 'away') c.timer = Math.min(c.timer, 1);
+    sendState();
+  }
+  function startCalibration() {
+    initAudio();
+    mode = 'calibrate';
+    lobby.hidden = true;
+    handlesBox.hidden = false;
+    calHelp.hidden = false;
+    applyWarp();
+  }
+  let wakeLock = null;
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator && !wakeLock) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      }
+    } catch { wakeLock = null; }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && mode === 'play') requestWakeLock();
+  });
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && (mode === 'play' || mode === 'ending')) showLobby();
+  });
+
+  // ---------- Eingaben am Laptop ----------
+  document.addEventListener('mousemove', e => {
+    // Pointer-Lock liefert beim Einrasten manchmal einen riesigen Sprung, daher begrenzen
+    if (mode === 'play') steer(critters[0], clamp(e.movementX, -120, 120) * 1.2, clamp(e.movementY, -120, 120) * 1.2);
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { if (mode !== 'lobby') showLobby(); return; }
+    if (mode === 'lobby' && e.target.closest('button')) return;
+    if (e.code === 'Space') { e.preventDefault(); initAudio(); catchCritter(critters[0]); }
+    else if (e.key === '2') { initAudio(); catchCritter(critters[1]); }
+    else if (e.key === 'l' || e.key === 'L') toggleLand(critters[0], true);
+    else if (e.key === 'a' || e.key === 'A') setSetting('auto', !settings.auto);
+    else if (e.key === 'b' || e.key === 'B') setSetting('prey', PREY_ORDER[(PREY_ORDER.indexOf(settings.prey) + 1) % PREY_ORDER.length]);
+  });
+
+  let dragging = null;
+  for (const el of handlesBox.children) {
+    el.addEventListener('pointerdown', e => {
+      dragging = Number(el.dataset.i);
+      try { el.setPointerCapture(e.pointerId); } catch { /* egal */ }
+    });
+    el.addEventListener('pointermove', e => {
+      if (dragging !== Number(el.dataset.i)) return;
+      corners[dragging] = [clamp(e.clientX / window.innerWidth, 0, 1), clamp(e.clientY / window.innerHeight, 0, 1)];
+      applyWarp();
+    });
+    el.addEventListener('pointerup', () => {
+      dragging = null;
+      writeStore('brummer.corners', corners);
+    });
+  }
+  document.getElementById('caldone').addEventListener('click', () => {
+    writeStore('brummer.corners', corners);
+    showLobby();
+  });
+  document.getElementById('calreset').addEventListener('click', () => {
+    corners = DEFAULT_CORNERS.map(p => p.slice());
+    writeStore('brummer.corners', corners);
+    applyWarp();
+  });
+  document.getElementById('start').addEventListener('click', startPlay);
+  document.getElementById('calibrate').addEventListener('click', startCalibration);
+
+  function syncMenu() {
+    for (const seg of document.querySelectorAll('.seg')) {
+      const key = seg.dataset.key;
+      for (const b of seg.querySelectorAll('button')) b.setAttribute('aria-pressed', String(String(settings[key]) === b.dataset.v));
+    }
+  }
+  for (const seg of document.querySelectorAll('.seg')) {
+    seg.addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      const key = seg.dataset.key, raw = b.dataset.v;
+      initAudio(); // damit man die Auswahl gleich hört
+      setSetting(key, key === 'size' || key === 'prey' ? raw : JSON.parse(raw));
+    });
+  }
+
+  // ---------- Schleife ----------
+  function resize() {
+    W = window.innerWidth;
+    H = window.innerHeight;
+    M = Math.min(W, H);
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    canvas.style.width = `${W}px`;
+    canvas.style.height = `${H}px`;
+    applyWarp();
+  }
+  let last = performance.now();
+  let lastSecond = -1;
+  function frame(ms) {
+    const dt = Math.min(0.05, Math.max(0, (ms - last) / 1000));
+    last = ms;
+    const t = ms / 1000;
+    for (const c of critters) updateCritter(c, dt, t);
+    updateSparks(dt);
+    if (mode === 'play' && round) {
+      round.elapsed += dt;
+      const left = timeLeft();
+      if (left !== null && left <= 0) finishByTime();
+      const sec = Math.floor(round.elapsed);
+      if (sec !== lastSecond) { lastSecond = sec; sendState(); }
+    } else if (mode === 'ending') {
+      endingTimer -= dt;
+      if (endingTimer <= 0 || critters.every(c => c.state === 'away')) showLobby();
+    }
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, W, H);
+    if (mode === 'calibrate') drawGrid(ctx);
+    for (const c of critters) drawCritter(ctx, c, t);
+    drawSparks(ctx);
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  syncCritters();
+  syncMenu();
+  renderStats();
+  checkOrigin();
+  renderQr();
+  openPeer();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
