@@ -17,7 +17,7 @@ Es gibt keine Abhängigkeiten und keinen Build-Schritt. Über GitHub Pages läss
   - **Käfer**: krabbelt langsam mit wuselnden Beinen über Gras
 - **Natürliches Beuteverhalten**: Pausen, Sprints, Schlendern, Verstecken außerhalb des Bildschirms und Flucht, wenn die Pfote knapp danebenhaut
 - **Großzügige Trefferzone**, Multitouch für mehrere Pfoten, Pfotenabdrücke bei jedem Tipper
-- **Synthetische Geräusche** (Web Audio, keine Dateien): Quieken, Plätschern, Zirpen. Optionale **Lockrufe** kommen per Stereo aus der Richtung der Beute
+- **Tiergeräusche** (Web Audio, keine Dateien): Bei Ton „Immer“ trippelt die Maus und quiekt, der Fisch rauscht durchs Wasser und blubbert, der Käfer raschelt und zirpt, der Laser macht ab und zu „zip“. Alles kommt per Stereo aus der Richtung des Tiers. Beim Fang gibt es ein eigenes Geräusch. „Ton testen“ im Menü prüft, ob das Gerät Ton ausgibt
 - **Einstellungen**: Tempo, 1–3 Beutetiere gleichzeitig, Spielzeit (5/10/15 Minuten oder unbegrenzt), Ton
 - **Katzensicheres Beenden**: Pfote oben rechts 2 Sekunden gedrückt halten (oder `Esc`)
 - Vollbild und Wake Lock, damit der Bildschirm während der Runde nicht ausgeht

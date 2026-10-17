@@ -152,6 +152,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .seg button + button { border-left: 1.5px solid var(--line); }
 .seg button[aria-pressed="true"] { background: var(--sky); color: #06152b; font-weight: 700; }
+.soundtest { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
+.soundtest button { padding: 7px 14px; border-radius: 10px; border: 1.5px solid var(--line); background: transparent; font-weight: 700; font-size: 0.88rem; }
+.soundtest p { margin: 0; font-size: 0.82rem; color: var(--muted); flex: 1 1 14rem; }
 
 .start {
   border: 0;
@@ -296,8 +299,12 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--sky); out
         <span class="label">Ton</span>
         <div class="seg" data-key="sound">
           <button type="button" id="sound-0" data-v="0">Aus</button>
-          <button type="button" id="sound-1" data-v="1">Beim Fang</button>
-          <button type="button" id="sound-2" data-v="2">+ Lockrufe</button>
+          <button type="button" id="sound-1" data-v="1">Nur beim Fang</button>
+          <button type="button" id="sound-2" data-v="2">Immer</button>
+        </div>
+        <div class="soundtest">
+          <button type="button" id="test-sound">Ton testen</button>
+          <p id="sound-hint">Nichts zu hören? Lautstärke hoch und den Stummschalter am iPad oder iPhone prüfen.</p>
         </div>
       </div>
     </div>
@@ -319,7 +326,7 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--sky); out
         <li><strong>Flach hinlegen:</strong> Tablet auf den Boden, Helligkeit hoch. Eine Schutzfolie fängt Krallenkratzer ab.</li>
         <li><strong>Festhalten in der App:</strong> Auf dem iPad „Geführter Zugriff“ (Bedienungshilfen) aktivieren, auf Android „App anheften“. So landet die Katze nicht im Homescreen.</li>
         <li><strong>Kurze Runden:</strong> 5 bis 10 Minuten reichen. Danach ein echtes Spielzeug oder ein Leckerli geben, damit die Jagd mit einer echten Beute endet. Das gilt besonders für den Laserpunkt.</li>
-        <li><strong>Lockrufe:</strong> Die Beute gibt ab und zu ein Geräusch von sich, das aus ihrer Richtung kommt. Das weckt die Neugier auch bei Katzen, die gerade nicht hinschauen.</li>
+        <li><strong>Geräusche:</strong> Bei „Immer“ trippelt die Maus und quiekt, der Fisch plätschert und blubbert, der Käfer raschelt und zirpt. Das kommt aus der Richtung des Tiers und weckt die Neugier auch bei Katzen, die gerade nicht hinschauen.</li>
       </ul>
     </details>
   </section>
@@ -384,7 +391,7 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--sky); out
     try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* nur Safari */ }
     audio = new AC();
     master = audio.createGain();
-    master.gain.value = 0.8;
+    master.gain.value = 1;
     master.connect(audio.destination);
     noiseBuf = audio.createBuffer(1, audio.sampleRate, audio.sampleRate);
     const data = noiseBuf.getChannelData(0);
@@ -436,23 +443,94 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--sky); out
   }
   const SOUNDS = {
     mouse(pan, v) {
-      tone({ f0: 2400, f1: 3600, f2: 2700, dur: 0.11, vol: 0.22 * v, pan });
-      tone({ f0: 2600, f1: 3900, f2: 3000, dur: 0.09, vol: 0.18 * v, pan, delay: 0.14 });
+      tone({ f0: 2400, f1: 3600, f2: 2700, dur: 0.11, vol: 0.3 * v, pan });
+      tone({ f0: 2600, f1: 3900, f2: 3000, dur: 0.09, vol: 0.25 * v, pan, delay: 0.14 });
     },
     fish(pan, v) {
       noise({ dur: 0.35, freq: 1100, q: 0.8, vol: 0.6 * v, pan });
       tone({ f0: 520, f1: 170, dur: 0.18, vol: 0.16 * v, pan });
     },
     laser(pan, v) {
-      tone({ f0: 1400, f1: 2300, dur: 0.08, vol: 0.14 * v, pan });
-      tone({ type: 'triangle', f0: 2300, f1: 1500, dur: 0.2, vol: 0.12 * v, pan, delay: 0.07 });
+      tone({ f0: 1400, f1: 2300, dur: 0.08, vol: 0.22 * v, pan });
+      tone({ type: 'triangle', f0: 2300, f1: 1500, dur: 0.2, vol: 0.18 * v, pan, delay: 0.07 });
     },
     bug(pan, v) {
-      for (let i = 0; i < 4; i++) tone({ type: 'square', f0: 4300, f1: 3800, dur: 0.035, vol: 0.05 * v, pan, delay: i * 0.055 });
+      for (let i = 0; i < 4; i++) tone({ type: 'square', f0: 4300, f1: 3800, dur: 0.035, vol: 0.12 * v, pan, delay: i * 0.055 });
     },
   };
-  function playSound(type, x, vol = 1, isLure = false) {
-    if (!audio || settings.sound === 0 || (isLure && settings.sound < 2)) return;
+  // Rufe zwischendurch, solange das Tier zu sehen ist (bei Ton „Immer“)
+  const CALLS = {
+    mouse: (pan, v) => SOUNDS.mouse(pan, v),
+    fish(pan, v) {
+      tone({ f0: 260, f1: 760, dur: 0.12, vol: 0.28 * v, pan });
+      tone({ f0: 340, f1: 980, dur: 0.1, vol: 0.2 * v, pan, delay: 0.16 });
+    },
+    laser(pan, v) {
+      tone({ f0: 900, f1: 2600, dur: 0.07, vol: 0.12 * v, pan });
+    },
+    bug: (pan, v) => SOUNDS.bug(pan, v),
+  };
+  function playCall(p, vol = 0.8) {
+    if (!audio || settings.sound < 2 || W === 0) return;
+    CALLS[p.type](clamp((p.x / W) * 2 - 1, -1, 1), vol);
+  }
+
+  // Dauergeräusche beim Laufen und Schwimmen: gefiltertes Rauschen, rhythmisch gepulst, eins pro Tier
+  const voices = [];
+  function noiseLoop(type, f, q, rate, depth, out) {
+    const src = audio.createBufferSource();
+    src.buffer = noiseBuf;
+    src.loop = true;
+    src.start(0, Math.random() * 0.8);
+    const flt = audio.createBiquadFilter();
+    flt.type = type;
+    flt.frequency.value = f;
+    flt.Q.value = q;
+    const pulse = audio.createGain();
+    pulse.gain.value = 1 - depth;
+    const lfo = audio.createOscillator();
+    lfo.frequency.value = rate;
+    lfo.start();
+    const lfoDepth = audio.createGain();
+    lfoDepth.gain.value = depth;
+    lfo.connect(lfoDepth).connect(pulse.gain);
+    const g = audio.createGain();
+    g.gain.value = 0;
+    src.connect(flt).connect(pulse).connect(g).connect(out);
+    return g;
+  }
+  function voiceFor(i) {
+    if (!audio) return null;
+    if (voices[i]) return voices[i];
+    const out = audio.createGain();
+    const pan = audio.createStereoPanner ? audio.createStereoPanner() : null;
+    if (pan) { out.connect(pan); pan.connect(master); } else out.connect(master);
+    voices[i] = {
+      pan,
+      mouse: noiseLoop('bandpass', 3200, 1.2, 21, 0.6, out),   // Trippeln
+      fish: noiseLoop('lowpass', 450, 0.8, 2.5, 0.4, out),     // Wasserrauschen beim Schwimmen
+      bug: noiseLoop('bandpass', 5200, 1.5, 32, 0.7, out),     // Rascheln im Gras
+    };
+    return voices[i];
+  }
+  const VOICE_GAIN = { mouse: 0.35, fish: 0.45, bug: 0.3 };
+  function updateVoices() {
+    if (!audio) return;
+    const t = audio.currentTime;
+    for (let i = 0; i < Math.max(prey.length, voices.length); i++) {
+      const p = prey[i];
+      const v = voiceFor(i);
+      const on = p && mode === 'play' && settings.sound === 2 && p.active;
+      const speed = on ? clamp(Math.hypot(p.vx, p.vy) / (p.t.dart * M), 0, 1) : 0;
+      for (const kind of ['mouse', 'fish', 'bug']) {
+        const level = on && p.type === kind && speed > 0.05 ? VOICE_GAIN[kind] * (0.3 + speed * 0.7) : 0;
+        v[kind].gain.setTargetAtTime(level, t, 0.05);
+      }
+      if (p && v.pan) v.pan.pan.setTargetAtTime(clamp((p.x / W) * 2 - 1, -1, 1), t, 0.05);
+    }
+  }
+  function playSound(type, x, vol = 1) {
+    if (!audio || settings.sound === 0) return;
     SOUNDS[type](W ? (x / W) * 2 - 1 : 0, vol);
   }
 
@@ -630,6 +708,7 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--sky); out
       this.tx = this.ty = 0;
       this.speed = 0;
       this.catchAnim = 0;
+      this.callTimer = rand(1.5, 4);
       if (opts.visible) {
         this.x = rand(W * 0.45, W * 0.85);
         this.y = rand(H * 0.25, H * 0.75);
@@ -686,6 +765,7 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--sky); out
           [this.tx, this.ty] = this.pickTarget('dart');
           this.speed = t.dart * M * sf * rand(0.8, 1.2);
           this.timer = 5;
+          if (this.type === 'laser' && mode === 'play' && Math.random() < 0.5) playCall(this, 0.6);
           break;
         case 'wander':
           [this.tx, this.ty] = this.pickTarget('wander');
@@ -736,6 +816,13 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--sky); out
       this.phase += dt;
       this.timer -= dt;
       const t = this.t;
+      if (this.active) {
+        this.callTimer -= dt;
+        if (this.callTimer <= 0) {
+          this.callTimer = rand(2.5, 6);
+          if (mode === 'play') playCall(this);
+        }
+      }
       if (this.state === 'hidden') {
         if (this.timer <= 0) {
           this.placeOutside();
@@ -960,7 +1047,6 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--sky); out
   let mode = 'menu';
   let prey = [];
   let stats = { catches: 0, taps: 0, elapsed: 0 };
-  let lureTimer = 0;
   let wakeLock = null;
   let holdStart = 0;
   let lastHud = '';
@@ -1023,7 +1109,6 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--sky); out
     mode = 'play';
     stats = { catches: 0, taps: 0, elapsed: 0 };
     effects = [];
-    lureTimer = rand(3, 6);
     resetPrey(false);
     menu.hidden = true;
     hud.hidden = false;
@@ -1081,19 +1166,13 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--sky); out
     const moving = !(mode === 'menu' && reducedMotion);
 
     if (moving) for (const p of prey) p.update(dt);
+    updateVoices();
     updateEffects(dt);
 
     if (mode === 'play') {
       stats.elapsed += dt;
       const limit = settings.minutes * 60;
       if (limit && stats.elapsed >= limit) endGame();
-      lureTimer -= dt;
-      if (lureTimer <= 0) {
-        const visible = prey.filter(p => p.active);
-        const src = visible.length ? visible[randi(visible.length)] : null;
-        if (src) playSound(src.type, src.x, 0.45, true);
-        lureTimer = rand(6, 14);
-      }
       const text = `Fänge ${stats.catches}${limit ? ` · ${formatTime(limit - stats.elapsed)}` : ''}`;
       if (text !== lastHud) { hud.textContent = text; lastHud = text; }
       if (holdStart) {
@@ -1168,6 +1247,19 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--sky); out
     });
   }
   document.getElementById('start').addEventListener('click', startGame);
+  // iPad/iPhone geben Ton erst nach einer Berührung frei (zuverlässig bei touchend/click)
+  for (const ev of ['touchend', 'click', 'keydown']) document.addEventListener(ev, initAudio, true);
+  document.getElementById('test-sound').addEventListener('click', () => {
+    initAudio();
+    if (!audio) return;
+    SOUNDS[settings.prey](0, 1);
+    setTimeout(() => {
+      const hint = document.getElementById('sound-hint');
+      hint.textContent = audio.state === 'running'
+        ? 'Ton läuft. Nichts zu hören? Lautstärke hoch und den Stummschalter am iPad oder iPhone prüfen.'
+        : 'Der Browser blockiert den Ton noch. Einmal auf „Ton testen“ tippen, dann sollte es gehen.';
+    }, 300);
+  });
 
   function drawTileIcons() {
     for (const tile of tiles) {
