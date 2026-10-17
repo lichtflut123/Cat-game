@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>Brummer Fernbedienung</title>
 <meta name="theme-color" content="#0d1321">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Brummer">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Sniglet:wght@400;800&display=swap">
@@ -43,6 +46,7 @@ body {
 }
 .app {
   height: 100%;
+  height: 100dvh; /* iPhone: Safari-Leisten nicht mitzählen */
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -82,7 +86,7 @@ body {
   user-select: text;
 }
 #error { color: var(--warn) !important; }
-button { font: inherit; color: inherit; cursor: pointer; }
+button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
 .primary {
   border: 0;
   border-radius: 999px;
@@ -117,6 +121,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
   font-size: 0.9rem;
   pointer-events: none;
 }
+/* Rückmeldung beim Fang: Das iPhone kann im Browser nicht vibrieren, darum blinkt die Fläche */
+#pad::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--amber);
+  opacity: 0;
+  pointer-events: none;
+}
+#pad.flash::after { animation: flash 0.5s ease-out; }
+@keyframes flash { from { opacity: 0.55; } to { opacity: 0; } }
 #finger {
   position: absolute;
   width: 64px;
@@ -283,6 +298,9 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--sky); outli
       $('buzz').setAttribute('aria-pressed', String(!!msg.buzz));
       $('size').textContent = msg.size;
     } else if (msg.t === 'caught') {
+      pad.classList.remove('flash');
+      void pad.offsetWidth; // Animation neu starten
+      pad.classList.add('flash');
       if (navigator.vibrate) try { navigator.vibrate([40, 40, 80]); } catch { /* egal */ }
     }
   }

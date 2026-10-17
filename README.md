@@ -50,12 +50,19 @@ Ein Projektor wirft eine leuchtende Fliege auf den Boden. Du steuerst sie mit de
 | Handy | Laptop | Wirkung |
 |---|---|---|
 | Wischen auf der Fläche | Maus/Touchpad bewegen | Fliege steuern (relativ, wie ein Touchpad) |
-| Gefangen! | Leertaste | Fang zählen, Funkenregen, Fliege kommt woanders wieder |
+| Gefangen! | Leertaste | Fang zählen, Funkenregen, Fliege kommt woanders wieder. Das Handy vibriert (Android) bzw. die Wischfläche blinkt (iPhone) |
 | Landen / Abheben | L | Fliege setzt sich hin oder fliegt los |
 | Autopilot | A | Fliegt selbst, sobald 2,5 s niemand steuert |
 | Summen | – | Summton an/aus (Laptop-Lautsprecher, Stereo nach Position) |
 | Größe − / + | – | S, M, L, XL |
 | – | Esc | Zurück ins Menü |
+
+## iPhone
+
+- QR-Code einfach mit der Kamera-App scannen, die Fernbedienung öffnet sich in Safari.
+- Safari erlaubt Webseiten kein Vibrieren. Stattdessen blinkt die Wischfläche bei einem Fang kurz gelb.
+- Tipp: In Safari „Teilen“ → „Zum Home-Bildschirm“. Dann startet die Fernbedienung ohne Adressleiste wie eine App.
+- Das Display bleibt während des Spiels an, solange die Fernbedienung offen ist (ab iOS 16.4). Wird das iPhone gesperrt oder die App gewechselt, bricht die Verbindung ab; dann einfach „Verbinden“ tippen.
 
 ## Verbindung und Hosting
 
