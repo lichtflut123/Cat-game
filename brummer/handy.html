@@ -195,7 +195,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--sky); outli
     <div class="controls">
       <button type="button" class="toggle" id="land" aria-pressed="false">Landen</button>
       <button type="button" class="toggle" id="auto" aria-pressed="true">Autopilot</button>
-      <button type="button" class="toggle" id="buzz" aria-pressed="true">Summen</button>
+      <button type="button" class="toggle" id="buzz" aria-pressed="true">Ton: Fliege</button>
       <div class="size">
         <span class="label">Größe</span>
         <button type="button" id="smaller" aria-label="Fliege kleiner">−</button>
@@ -295,7 +295,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--sky); outli
       $('land').setAttribute('aria-pressed', String(!!msg.landed));
       $('land').textContent = msg.landed ? 'Abheben' : 'Landen';
       $('auto').setAttribute('aria-pressed', String(!!msg.auto));
-      $('buzz').setAttribute('aria-pressed', String(!!msg.buzz));
+      $('buzz').setAttribute('aria-pressed', String(msg.buzz !== 'off'));
+      $('buzz').textContent = `Ton: ${{ off: 'Aus', fly: 'Fliege', mosquito: 'Mücke' }[msg.buzz] || 'Fliege'}`;
       $('size').textContent = msg.size;
     } else if (msg.t === 'caught') {
       pad.classList.remove('flash');

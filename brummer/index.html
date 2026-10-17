@@ -231,10 +231,11 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
           </div>
         </div>
         <div class="field">
-          <span class="label">Summen</span>
+          <span class="label">Geräusch</span>
           <div class="seg" data-key="buzz">
-            <button type="button" id="buzz-off" data-v="false">Aus</button>
-            <button type="button" id="buzz-on" data-v="true">An</button>
+            <button type="button" id="buzz-off" data-v="off">Aus</button>
+            <button type="button" id="buzz-fly" data-v="fly">Fliege</button>
+            <button type="button" id="buzz-mosquito" data-v="mosquito">Mücke</button>
           </div>
         </div>
         <div class="field">
@@ -309,8 +310,11 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
     try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Speicher nicht verfügbar */ }
   }
 
-  const settings = Object.assign({ size: 'M', speed: 1, buzz: true, auto: true }, readStore('brummer.settings'));
+  const BUZZ_KINDS = ['off', 'fly', 'mosquito'];
+  const settings = Object.assign({ size: 'M', speed: 1, buzz: 'fly', auto: true }, readStore('brummer.settings'));
   if (!SIZES[settings.size]) settings.size = 'M';
+  if (settings.buzz === false) settings.buzz = 'off'; // ältere Einstellung war an/aus
+  if (!BUZZ_KINDS.includes(settings.buzz)) settings.buzz = 'fly';
   const DEFAULT_CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]];
   let corners = readStore('brummer.corners');
   if (!Array.isArray(corners) || corners.length !== 4) corners = DEFAULT_CORNERS.map(p => p.slice());
@@ -380,30 +384,69 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
 
-    // Dauersummen: zwei leicht verstimmte Sägezähne, gefiltert; Lautstärke folgt der Fluggeschwindigkeit
-    const o1 = audio.createOscillator(), o2 = audio.createOscillator();
-    o1.type = o2.type = 'sawtooth';
-    const lp = audio.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.value = 1500;
-    lp.Q.value = 2;
-    const gain = audio.createGain();
-    gain.gain.value = 0;
+    // Beide Geräusche werden live erzeugt: kostenlos, ohne Dateien und ohne Lizenzfragen.
+    // So können Tonhöhe, Lautstärke und Stereo-Richtung jederzeit der Flugbewegung folgen.
+    const osc = (type, f = 100) => { const o = audio.createOscillator(); o.type = type; o.frequency.value = f; o.start(); return o; };
+    const amp = v => { const g = audio.createGain(); g.gain.value = v; return g; };
+    const filter = (type, f, q = 0.7) => { const b = audio.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; return b; };
+    const out = amp(1);
     const pan = audio.createStereoPanner ? audio.createStereoPanner() : null;
-    o1.connect(lp); o2.connect(lp);
-    lp.connect(gain);
-    if (pan) { gain.connect(pan); pan.connect(master); } else gain.connect(master);
-    o1.start(); o2.start();
-    buzz = { o1, o2, lp, gain, pan };
+    if (pan) { out.connect(pan); pan.connect(master); } else out.connect(master);
+
+    // Stubenfliege: Flügelschlag um 190 Hz mit vielen Obertönen, durch Resonanzen gefärbt,
+    // flatternde Lautstärke und ein Hauch Luftrauschen
+    const flyA = osc('sawtooth'), flyB = osc('square');
+    const flyMix = amp(1);
+    flyA.connect(flyMix);
+    flyB.connect(amp(0.35)).connect(flyMix);
+    const flyBody = amp(1);
+    for (const [f, q, g] of [[320, 4, 1], [1150, 5, 0.6], [2700, 6, 0.35]]) {
+      flyMix.connect(filter('bandpass', f, q)).connect(amp(g)).connect(flyBody);
+    }
+    flyMix.connect(filter('lowpass', 600)).connect(amp(0.25)).connect(flyBody);
+    const flutter = amp(0.8);
+    osc('sine', 23).connect(amp(0.25)).connect(flutter.gain);
+    osc('triangle', 7.1).connect(amp(0.15)).connect(flutter.gain);
+    const flyGain = amp(0);
+    flyBody.connect(flutter).connect(flyGain).connect(out);
+    const air = audio.createBufferSource();
+    air.buffer = noiseBuf;
+    air.loop = true;
+    air.start();
+    const airGain = amp(0);
+    air.connect(filter('bandpass', 1800, 0.8)).connect(airGain).connect(out);
+
+    // Mücke: hohes, dünnes Sirren um 600 Hz, zwei leicht verstimmte Stimmen mit Vibrato
+    const mosA = osc('sawtooth'), mosB = osc('sawtooth');
+    const vib = amp(9);
+    osc('sine', 6.3).connect(vib);
+    vib.connect(mosA.frequency);
+    vib.connect(mosB.frequency);
+    const mosGain = amp(0);
+    const mosMix = amp(0.5);
+    mosA.connect(mosMix);
+    mosB.connect(mosMix);
+    mosMix.connect(filter('highpass', 350)).connect(filter('lowpass', 5000)).connect(mosGain).connect(out);
+
+    buzz = { flyA, flyB, flyGain, airGain, mosA, mosB, mosGain, pan, wander: 0 };
   }
-  function updateBuzz(speedNorm, on) {
+  function updateBuzz(speedNorm, kind, flying) {
     if (!buzz) return;
     const t = audio.currentTime;
-    const f = 175 + speedNorm * 90 + Math.sin(t * 5.3) * 6;
-    buzz.o1.frequency.setTargetAtTime(f, t, 0.05);
-    buzz.o2.frequency.setTargetAtTime(f * 1.03, t, 0.05);
-    buzz.lp.frequency.setTargetAtTime(900 + speedNorm * 1600, t, 0.05);
-    buzz.gain.gain.setTargetAtTime(on ? 0.03 + speedNorm * 0.07 : 0, t, on ? 0.04 : 0.08);
+    const flyOn = flying && kind === 'fly';
+    const mosOn = flying && kind === 'mosquito';
+    // langsames Zufallswandern der Tonhöhe, damit es nicht nach Maschine klingt
+    buzz.wander += (Math.random() - 0.5) * 2 - buzz.wander * 0.02;
+    const fFly = 185 + speedNorm * 70 + buzz.wander * 0.8 + Math.sin(t * 3.1) * 4;
+    buzz.flyA.frequency.setTargetAtTime(fFly, t, 0.04);
+    buzz.flyB.frequency.setTargetAtTime(fFly * 1.004, t, 0.04);
+    buzz.flyGain.gain.setTargetAtTime(flyOn ? 0.12 + speedNorm * 0.25 : 0, t, flyOn ? 0.03 : 0.06);
+    buzz.airGain.gain.setTargetAtTime(flyOn ? 0.025 + speedNorm * 0.1 : 0, t, 0.05);
+    const fMos = 560 + speedNorm * 120 + buzz.wander * 1.5;
+    buzz.mosA.frequency.setTargetAtTime(fMos, t, 0.05);
+    buzz.mosB.frequency.setTargetAtTime(fMos * 1.006, t, 0.05);
+    const near = 1 + Math.sin(t * 0.7) * 0.3; // mal näher, mal weiter weg
+    buzz.mosGain.gain.setTargetAtTime(mosOn ? (0.06 + speedNorm * 0.1) * near : 0, t, mosOn ? 0.05 : 0.08);
     if (buzz.pan) buzz.pan.pan.setTargetAtTime(clamp((fly.x / W) * 2 - 1, -1, 1), t, 0.05);
   }
   function catchSound() {
@@ -586,7 +629,7 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
       }
     }
     const speedNorm = fly.state === 'fly' ? clamp(Math.hypot(fly.vx, fly.vy) / (M * 1.5), 0, 1) : 0;
-    updateBuzz(speedNorm, settings.buzz && fly.state === 'fly' && mode !== 'calibrate');
+    updateBuzz(speedNorm, settings.buzz, fly.state === 'fly' && mode !== 'calibrate');
   }
 
   function ellipse(c, x, y, rx, ry, rot = 0) {
@@ -830,7 +873,7 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
       case 'catch': catchFly(); break;
       case 'land': toggleLand(true); break;
       case 'auto': setSetting('auto', !settings.auto); break;
-      case 'buzz': setSetting('buzz', !settings.buzz); break;
+      case 'buzz': setSetting('buzz', BUZZ_KINDS[(BUZZ_KINDS.indexOf(settings.buzz) + 1) % BUZZ_KINDS.length]); break;
       case 'size': {
         const i = clamp(SIZE_ORDER.indexOf(settings.size) + (msg.step > 0 ? 1 : -1), 0, SIZE_ORDER.length - 1);
         setSetting('size', SIZE_ORDER[i]);
@@ -945,7 +988,8 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
       const b = e.target.closest('button');
       if (!b) return;
       const key = seg.dataset.key, raw = b.dataset.v;
-      setSetting(key, key === 'size' ? raw : JSON.parse(raw));
+      initAudio(); // damit man die Geräusch-Auswahl gleich hört
+      setSetting(key, key === 'size' || key === 'buzz' ? raw : JSON.parse(raw));
     });
   }
 

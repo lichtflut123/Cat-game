@@ -53,7 +53,7 @@ Ein Projektor wirft eine leuchtende Fliege auf den Boden. Du steuerst sie mit de
 | Gefangen! | Leertaste | Fang zählen, Funkenregen, Fliege kommt woanders wieder. Das Handy vibriert (Android) bzw. die Wischfläche blinkt (iPhone) |
 | Landen / Abheben | L | Fliege setzt sich hin oder fliegt los |
 | Autopilot | A | Fliegt selbst, sobald 2,5 s niemand steuert |
-| Summen | – | Summton an/aus (Laptop-Lautsprecher, Stereo nach Position) |
+| Ton: Fliege / Mücke / Aus | Menü „Geräusch“ | Brummen einer Stubenfliege oder hohes Mückensirren. Tonhöhe und Lautstärke folgen der Geschwindigkeit, Stereo nach Position. Beides wird live erzeugt, also kostenlos und ohne Lizenzfragen |
 | Größe − / + | – | S, M, L, XL |
 | – | Esc | Zurück ins Menü |
 
